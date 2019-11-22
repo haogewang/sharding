@@ -1,0 +1,15 @@
+package com.szhq.iemp.device.repository;
+
+import com.szhq.iemp.device.api.model.TuserGroupR;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface UserGroupRRepository extends JpaRepository<TuserGroupR,String>,JpaSpecificationExecutor<TuserGroupR> {
+
+	@Query(value="select group_id from user_group_r where user_id=?1", nativeQuery = true)
+	public String findGroupIdByUserId(String userId);
+
+}

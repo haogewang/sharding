@@ -1,0 +1,33 @@
+server:
+    servlet:
+        context-path: /aepreservation
+    tomcat:
+        accesslog:
+            buffered: true
+            directory: /data/iEMP/logs/tomcat/reservation
+            enabled: true
+            file-date-format: .yyyy-MM-dd
+            pattern: '%t [%I] %{X-Forwarded-For}i %a %r %s (%D ms)'
+    use-forward-headers: true
+spring:
+    profiles:
+        active: dev
+    application:
+        name: aep-reservation
+    main:
+        allow-bean-definition-overriding: true
+    servlet:
+        multipart:
+            enabled: true
+    messages:
+        basename: i18n/register/register,i18n/electrmobile/electrmobile,i18n/common/common,
+                  i18n/device/device,i18n/reservation/reservation,i18n/user/user,i18n/operator/operator,i18n/group/group
+management:
+    endpoint:
+        health:
+            show-details: ALWAYS
+    endpoints:
+        web:
+            exposure:
+                exclude: configprops
+                include: '*'

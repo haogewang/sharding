@@ -1,0 +1,102 @@
+spring:
+    profiles:
+        active: dev
+    shardingsphere:
+        datasource:
+            names: master,slave
+            master:
+                driver-class-name: com.mysql.cj.jdbc.Driver
+                jdbc-url: jdbc:mysql://localhost:3306/iemp?useUnicode=true&characterEncoding=utf-8&autoReconnect=true&serverTimezone=GMT%2b8&zeroDateTimeBehavior=convertToNull
+                password: Changeme_123
+                pool-name: masterPool1
+                type: com.zaxxer.hikari.HikariDataSource
+                username: root
+                connection-timeout: 30000
+            slave:
+                driver-class-name: com.mysql.cj.jdbc.Driver
+                jdbc-url: jdbc:mysql://localhost:3306/iemp?useUnicode=true&characterEncoding=utf-8&autoReconnect=true&serverTimezone=GMT%2b8&zeroDateTimeBehavior=convertToNull
+                password: Changeme_123
+                pool-name: slavePool1
+                type: com.zaxxer.hikari.HikariDataSource
+                username: root
+                connection-timeout: 30000
+        props:
+            check:
+                table:
+                    metadata:
+                        enabled: false
+            executor:
+                size: 4
+            sql:
+                show: true
+        sharding:
+            binding-tables:
+            - t_device_inventory,t_electrmobile
+            broadcast-tables:
+            - t_config
+            - t_color
+            default-data-source-name: ds
+            default-database-strategy:
+                inline:
+                    algorithm-expression: ds
+                    sharding-column: imei
+            default-table-strategy:
+                inline:
+                    algorithm-expression: user$->{id % 2}
+                    sharding-column: id
+            master-slave-rules:
+                ds:
+                    name: ds
+                    load-balance-algorithm-type: ROUND_ROBIN
+                    master-data-source-name: master
+                    slave-data-source-names: slave
+            tables:
+                t_color:
+                    key-generator:
+                        column: color_id
+                        type: SNOWFLAKE
+                t_config:
+                    key-generator:
+                        column: id
+                        type: SNOWFLAKE
+                t_device_inventory:
+                    actual-data-nodes: ds.t_device_inventory$->{0..3}
+                    key-generator:
+                        column: id
+                        type: SNOWFLAKE
+                    table-strategy:
+                        standard:
+                            precise-algorithm-class-name: com.szhq.iemp.device.config.ShardingTableConfig
+                            range-algorithm-class-name: com.szhq.iemp.device.config.ShardingTableConfig
+                            sharding-column: imei
+                t_electrmobile:
+                    actual-data-nodes: ds.t_electrmobile$->{0..3}
+                    key-generator:
+                        column: elec_id
+                        type: SNOWFLAKE
+                    table-strategy:
+                        standard:
+                            precise-algorithm-class-name: com.szhq.iemp.device.config.ShardingTableConfig
+                            sharding-column: imei
+    jpa:
+        hibernate:
+            ddl-auto: update
+        database-platform: com.szhq.iemp.common.config.MysqlConfig
+        database: mysql
+        show-sql: true
+        open-in-view: true
+    redis:
+        host: 127.0.0.1
+        port: 6379
+        password: Changeme_123
+        timeout: 10000
+        jedis:
+            pool:
+                max-active: 500
+                max-idle: 5
+                max-wait: 10000
+                min-idle: 0
+log:
+    path: /data/iEMP/logs/aep-devicemanage
+logging:
+    config: classpath:logback-spring.xml

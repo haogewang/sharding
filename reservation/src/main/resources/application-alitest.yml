@@ -1,0 +1,190 @@
+server:
+    port: 9006
+spring:
+    shardingsphere:
+        datasource:
+            names: master,slave
+            master:
+                driver-class-name: com.mysql.cj.jdbc.Driver
+                jdbc-url: jdbc:mysql://db:3306/tracker?useUnicode=true&characterEncoding=utf-8&autoReconnect=true&serverTimezone=GMT%2b8&zeroDateTimeBehavior=convertToNull
+                username: fdmn
+                password: HuaQiang614376!
+                data-username: fdmn
+                data-password: HuaQiang614376!
+                data: classpath:sql/data.sql
+                initialization-mode: always
+                pool-name: masterPool1
+                type: com.zaxxer.hikari.HikariDataSource
+                connection-timeout: 30000
+                max-lifetime: 1800000
+                minimum-idle: 5
+                maximum-pool-size: 20
+                auto-commit: true
+                idle-timeout: 30000
+                validation-timeout: 3000
+            slave:
+                driver-class-name: com.mysql.cj.jdbc.Driver
+                jdbc-url: jdbc:mysql://db-slave:3306/tracker?useUnicode=true&characterEncoding=utf-8&autoReconnect=true&serverTimezone=GMT%2b8&zeroDateTimeBehavior=convertToNull
+                username: fdmn
+                password: HuaQiang614376!
+                pool-name: slavePool1
+                type: com.zaxxer.hikari.HikariDataSource
+                connection-timeout: 30000
+                max-lifetime: 1800000
+                minimum-idle: 5
+                maximum-pool-size: 20
+                auto-commit: true
+                idle-timeout: 30000
+                validation-timeout: 3000
+        props:
+            check:
+                table:
+                    metadata:
+                        enabled: false
+            executor:
+                size: 8
+            sql:
+                show: false
+        sharding:
+            binding-tables:
+            - t_registration,t_electrmobile
+            broadcast-tables:
+            - t_electrombile_color
+            - t_electrmobile_type
+            - t_electrmobile_vendor
+            - t_common_config
+            default-data-source-name: ds
+            default-database-strategy:
+                inline:
+                    algorithm-expression: ds
+                    sharding-column: imei
+            default-table-strategy:
+                inline:
+                    algorithm-expression: t_device_inventory->{id % 2}
+                    sharding-column: id
+            master-slave-rules:
+                ds:
+                    name: ds
+                    load-balance-algorithm-type: ROUND_ROBIN
+                    master-data-source-name: master
+                    slave-data-source-names: slave
+            tables:
+                t_registration:
+                    actual-data-nodes: ds.t_registration
+                   # key-generator:
+                   #     column: register_id
+                   #     type: SNOWFLAKE
+                    table-strategy:
+                        standard:
+                            precise-algorithm-class-name: com.szhq.iemp.reservation.config.ShardingTableConfig
+                            range-algorithm-class-name: com.szhq.iemp.reservation.config.ShardingTableConfig
+                            sharding-column: imei
+                t_electrmobile:
+                    #ds.t_electrmobile$->{0..3}
+                    actual-data-nodes: ds.t_electrmobile
+                  #  key-generator:
+                  #      column: electrmobile_id
+                  #      type: SNOWFLAKE
+                    table-strategy:
+                        standard:
+                            precise-algorithm-class-name: com.szhq.iemp.reservation.config.ShardingTableConfig
+                            sharding-column: imei
+    data:
+        cassandra:
+            keyspace-name: nbiot_tracker
+            schema-action: CREATE_IF_NOT_EXISTS
+            contact-points: cassandra01,cassandra02,cassandra03
+            port: 9042
+            username: cassandra
+            password: cassandra
+        elasticsearch:
+            cluster-name: iemp
+            cluster-nodes: es01:9300,es02:9300,es03:9300
+            repositories:
+                enabled: true
+    elasticsearch:
+        rest:
+            uris:
+            - http://es01:9200
+            - http://es02:9200
+            - http://es03:9200
+    jackson:
+        time-zone: GMT+8
+    dubbo:
+        application:
+            id: aepreservation
+            name: aepreservation
+            registries:
+                wait: 20000
+                timeout: 30000
+                session: 10000
+        registry:
+            address: zookeeper://zookeeper01:2181?backup=zookeeper02:2181,zookeeper03:2181
+        consumer:
+            check: false
+        protocol:
+            id: dubbo
+            name: dubbo
+            port: 32092
+            status: server
+        scan: com.szhq.iemp
+        provider:
+            filter: customException
+
+    boot:
+        admin:
+            client:
+                url: http://112.124.201.252:8990/springboot-admin
+                username: admin
+                password: szhq@2019
+    jpa:
+        hibernate:
+            ddl-auto: update
+        open-in-view: true
+        properties:
+            hibernate:
+                dialect: com.szhq.iemp.common.config.MysqlConfig
+                format_sql: true
+                jdbc:
+                    batch_size: 500
+                order_inserts: true
+        show-sql: true
+    redis:
+        host: redis
+        port: 6379
+        password: Changeme_123
+        timeout: 10000
+        jedis:
+            pool:
+                max-active: 500
+                max-idle: 5
+                max-wait: 10000
+                min-idle: 0
+        secondhost: redis
+        secondport: 6379
+        secondpassword: Changeme_123
+springfox:
+    documentation:
+        swagger:
+            v2:
+                host: 112.124.201.252:8999
+#浪潮服务器url
+lc-server-url: http://221.214.98.234:50013/ebike-data-service
+lc-register-url: ${lc-server-url}/aepreservation/register
+lc-update-register-url: ${lc-server-url}/aepreservation/register/update
+lc-changeimei-url: ${lc-server-url}/aepreservation/register/changeimei
+lc-delte-register-url: ${lc-server-url}/aepreservation/register/delete
+log:
+    path: /data/iEMP/logs/aep-reservation
+logging:
+    config: classpath:logback-spring.xml
+
+ismust: false
+nbiot:
+    registration:
+        reservation:
+            day:
+                am:
+                    quota: 50
+                pm:
+                    quota: 50
