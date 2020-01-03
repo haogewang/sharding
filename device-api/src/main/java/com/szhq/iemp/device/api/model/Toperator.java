@@ -10,6 +10,7 @@ import org.hibernate.annotations.NotFoundAction;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import javax.persistence.*;
+import java.util.List;
 
 /**
  * 运营公司
@@ -52,6 +53,14 @@ public class Toperator extends BaseEntity {
     @NotFound(action = NotFoundAction.IGNORE)
     private TaddressRegion region;
 
+    //是否打开webSocket开关（0:关闭,1:打开）
+    private Integer flag;
+    /**
+     * 车牌前缀
+     */
+    @Transient
+    private List<Integer> platenoPrefixIds;
+
     @Transient
     private Integer deviceCount;
 
@@ -60,5 +69,11 @@ public class Toperator extends BaseEntity {
 
     @Transient
     private Integer unActiveCount;
+
+    @Transient
+    private Integer installedCount;
+
+    @Transient
+    private Integer saleCount;
 
 }

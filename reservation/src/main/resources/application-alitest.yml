@@ -6,7 +6,7 @@ spring:
             names: master,slave
             master:
                 driver-class-name: com.mysql.cj.jdbc.Driver
-                jdbc-url: jdbc:mysql://db:3306/tracker?useUnicode=true&characterEncoding=utf-8&autoReconnect=true&serverTimezone=GMT%2b8&zeroDateTimeBehavior=convertToNull
+                jdbc-url: jdbc:mysql://db:3306/tracker_v1?useUnicode=true&characterEncoding=utf-8&autoReconnect=true&serverTimezone=GMT%2b8&zeroDateTimeBehavior=convertToNull
                 username: fdmn
                 password: HuaQiang614376!
                 data-username: fdmn
@@ -15,26 +15,28 @@ spring:
                 initialization-mode: always
                 pool-name: masterPool1
                 type: com.zaxxer.hikari.HikariDataSource
+                connection-test-query: SELECT 1
                 connection-timeout: 30000
-                max-lifetime: 1800000
+                max-lifetime: 80000
                 minimum-idle: 5
-                maximum-pool-size: 20
+                maximum-pool-size: 100
                 auto-commit: true
-                idle-timeout: 30000
+                idle-timeout: 10000
                 validation-timeout: 3000
             slave:
                 driver-class-name: com.mysql.cj.jdbc.Driver
-                jdbc-url: jdbc:mysql://db-slave:3306/tracker?useUnicode=true&characterEncoding=utf-8&autoReconnect=true&serverTimezone=GMT%2b8&zeroDateTimeBehavior=convertToNull
+                jdbc-url: jdbc:mysql://db-slave:3306/tracker_v1?useUnicode=true&characterEncoding=utf-8&autoReconnect=true&serverTimezone=GMT%2b8&zeroDateTimeBehavior=convertToNull
                 username: fdmn
                 password: HuaQiang614376!
                 pool-name: slavePool1
                 type: com.zaxxer.hikari.HikariDataSource
+                connection-test-query: SELECT 1
                 connection-timeout: 30000
-                max-lifetime: 1800000
+                max-lifetime: 80000
                 minimum-idle: 5
-                maximum-pool-size: 20
+                maximum-pool-size: 100
                 auto-commit: true
-                idle-timeout: 30000
+                idle-timeout: 10000
                 validation-timeout: 3000
         props:
             check:
@@ -147,12 +149,12 @@ spring:
                 format_sql: true
                 jdbc:
                     batch_size: 500
-                order_inserts: true
+                    order_inserts: true
         show-sql: true
     redis:
         host: redis
         port: 6379
-        password: Changeme_123
+        password: adminadmin
         timeout: 10000
         jedis:
             pool:
@@ -162,7 +164,7 @@ spring:
                 min-idle: 0
         secondhost: redis
         secondport: 6379
-        secondpassword: Changeme_123
+        secondpassword: adminadmin
 springfox:
     documentation:
         swagger:

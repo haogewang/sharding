@@ -1,11 +1,11 @@
 package com.szhq.iemp.reservation.controller;
 
 import com.alibaba.fastjson.JSONObject;
-import com.szhq.iemp.common.constant.CommonConstant;
 import com.szhq.iemp.common.constant.ResultConstant;
 import com.szhq.iemp.common.constant.enums.exception.RegisterExceptionEnum;
 import com.szhq.iemp.common.exception.NbiotException;
-import com.szhq.iemp.common.util.SecurityUtils;
+import com.szhq.iemp.common.util.DencryptTokenUtil;
+import com.szhq.iemp.common.util.MaskUtils;
 import com.szhq.iemp.common.vo.MyPage;
 import com.szhq.iemp.common.vo.Result;
 import com.szhq.iemp.reservation.api.model.Tregistration;
@@ -13,13 +13,15 @@ import com.szhq.iemp.reservation.api.model.Tuser;
 import com.szhq.iemp.reservation.api.service.ElectrmobileService;
 import com.szhq.iemp.reservation.api.service.RegistrationService;
 import com.szhq.iemp.reservation.api.service.UserService;
+import com.szhq.iemp.reservation.api.vo.RegisterVo;
 import com.szhq.iemp.reservation.api.vo.query.RegisterQuery;
-import com.szhq.iemp.reservation.util.DecyptTokenUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
 import org.apache.commons.lang3.StringUtils;
+import org.modelmapper.ModelMapper;
+import org.modelmapper.PropertyMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,7 +58,19 @@ public class RegisterationController {
         long start = System.currentTimeMillis();
         MyPage<Tregistration> list = registrationService.findRegistrationCriteria(offset, limit, sort, order, query);
         Map<String, Object> result = new HashMap<>();
-        result.put("reservations", list.getContent());
+        if(query.getEncrypt()){
+            List<RegisterVo> voList = new ArrayList<>();
+            ModelMapper modelMapper = new ModelMapper();
+            modelMapper.addMappings(organMap);
+            for (Tregistration organ : list.getContent()) {
+                RegisterVo to = modelMapper.map(organ, RegisterVo.class);
+                logger.info("vo:{}",to);
+                voList.add(to);
+            }
+            result.put("reservations", voList);
+        }else{
+            result.put("reservations", list.getContent());
+        }
         result.put("total", list.getTotal());
         long end = System.currentTimeMillis();
         long time = end - start;
@@ -64,6 +78,24 @@ public class RegisterationController {
         return new Result(ResultConstant.SUCCESS, result);
     }
 
+    PropertyMap<Tregistration, RegisterVo> organMap = new PropertyMap<Tregistration, RegisterVo>() {
+        protected void configure() {
+            map().setElectrmobileId(source.getElectrmobileId());
+            map().setUserId(source.getUserId());
+            map().setIdNumber(source.getIdNumber());
+            map().setImei(source.getImei());
+            map().setModelNo(source.getModelNo());
+            map().setOperatorId(source.getOperatorId());
+            map().setCreateTime(source.getCreateTime());
+            map().setUsername(source.getUsername());
+            map().setRegisterId(source.getRegisterId());
+            map().setPhone(source.getPhone());
+            if(source.getUser() != null){
+                map().setContactPhone(source.getUser().getContactPhone());
+                map().setHome(source.getUser().getHome());
+            }
+        }
+    };
     @ApiOperation(value = "备案列表(App)", notes = "根据条件查询备案信息")
     @RequestMapping(value = "/search", method = RequestMethod.POST)
     public Result searchApp(@RequestParam(value = "offset") Integer offset,
@@ -77,7 +109,8 @@ public class RegisterationController {
         List<Tregistration> lists = new ArrayList<>();
         for(Tregistration register : list.getContent()){
             register.setUser(userService.findById(register.getUserId()));
-            register.setElectrmobile(electrmobileService.findByElecId(register.getElectrmobileId()));
+            register.setElectrombile(electrmobileService.findByElecId(register.getElectrmobileId()));
+            register.setRegistrationId(register.getRegisterId());
             lists.add(register);
         }
         result.put("reservations", lists);
@@ -87,7 +120,7 @@ public class RegisterationController {
 
     @ApiOperation(value = "备案注册", notes = "备案注册")
     @RequestMapping(value = "/add", method = RequestMethod.POST)
-    public Result createRegistration(@Valid @RequestBody Tregistration data,
+    public Result createRegistration(@RequestBody Tregistration data,
                                      @RequestParam(value = "isCreateUser", defaultValue = "true") Boolean isCreateUser, BindingResult result) {
         return addRegister(data, result, isCreateUser);
     }
@@ -113,7 +146,7 @@ public class RegisterationController {
     @RequestMapping(value = "/changeImei", method = RequestMethod.POST)
     public Result changeImei(@RequestParam(value = "registrationId") Long id,
                              @RequestParam(value = "newImei") String newImei,
-                             @RequestBody(required = false) RegisterQuery query, HttpServletRequest request) {
+                             @RequestBody(required = false) RegisterQuery query) {
         Integer i = registrationService.changeImei(id, newImei, query);
         if (i == 1) {
             return new Result(ResultConstant.SUCCESS, "更换成功");
@@ -123,8 +156,23 @@ public class RegisterationController {
 
     @ApiOperation(value = "根据Id查看备案详情", notes = "根据Id查看备案详情")
     @RequestMapping(value = "/getInfoById", method = RequestMethod.GET)
-    public Result getInfoById(@RequestParam(value = "registrationId") Long id) {
+    public Result getInfoById(@RequestParam(value = "registrationId") Long id,
+                              @RequestParam(value = "isEncrypt", defaultValue = "false") Boolean isEncrypt) {
         Tregistration register = registrationService.getInfoById(id);
+        if(isEncrypt){
+            Tuser user = register.getUser();
+            if(user != null){
+                String idNumber = MaskUtils.maskIDCardNo(user.getIdNumber());
+                String home = MaskUtils.maskHome(user.getHome());
+                String phone = MaskUtils.maskPhone(user.getPhone());
+                user.setIdNumber(idNumber);
+                user.setHome(home);
+                user.setPhone(phone);
+                register.setUser(user);
+                register.setIdNumber(idNumber);
+                register.setPhone(phone);
+            }
+        }
         return new Result(ResultConstant.SUCCESS, register);
     }
 
@@ -135,7 +183,7 @@ public class RegisterationController {
         return new Result(ResultConstant.SUCCESS, register);
     }
 
-    @ApiOperation(value = "删除备案", notes = "删除备案")
+    @ApiOperation(value = "删除备案(旧)", notes = "删除备案")
     @ApiImplicitParams({
             @ApiImplicitParam(name = "id", value = "备案id", required = true, dataType = "String"),
             @ApiImplicitParam(name = "imei", value = "imei", required = true, dataType = "String")
@@ -147,6 +195,12 @@ public class RegisterationController {
         return new Result(ResultConstant.SUCCESS, "删除备案成功");
     }
 
+    @ApiOperation(value = "删除备案", notes = "删除备案")
+    @RequestMapping(value = "/deleteById", method = RequestMethod.DELETE)
+    public Result deleteById(@RequestParam("id") Long id) {
+        Integer i = registrationService.deleteRegister(id);
+        return new Result(ResultConstant.SUCCESS, i);
+    }
 
     @ApiOperation(value = "导出备案", notes = "根据时间导出备案数据")
     @RequestMapping(value = "/export", method = RequestMethod.GET)
@@ -155,7 +209,7 @@ public class RegisterationController {
         RegisterQuery query = new RegisterQuery();
         query.setStartTime(startTime);
         query.setEndTime(endTime);
-        List<Integer> operatorIds = DecyptTokenUtil.getOperatorIds(request);
+        List<Integer> operatorIds = DencryptTokenUtil.getOperatorIds(request);
         logger.info("export register operatorIds:" + JSONObject.toJSONString(operatorIds));
         if (operatorIds != null && operatorIds.get(0) != 0) {
             logger.debug("");
@@ -165,20 +219,19 @@ public class RegisterationController {
         registrationService.exportExcel(response, query);
     }
 
-    @ApiOperation(value = "添加备案(存在用户时添加车辆或不存在用户时同时添加(imei必填))", notes = "添加备案(存在用户时添加车辆或不存在用户时同时添加)")
+    @ApiOperation(value = "添加备案(存在用户时添加车辆或不存在用户时车辆用户同时添加(imei必填))", notes = "添加备案(存在用户时添加车辆或不存在用户时同时添加)")
     @RequestMapping(value = "/addRegistration", method = RequestMethod.POST)
     public Result addRegistration(@Valid @RequestBody Tregistration data, BindingResult result) {
         if (result.hasErrors() && result.getFieldError() != null) {
             logger.error("register error." + result.getFieldError().getDefaultMessage());
             return new Result(ResultConstant.FAILED, result.getFieldError().getDefaultMessage());
         }
-        if (data.getElectrmobile() == null || StringUtils.isEmpty(data.getElectrmobile().getImei())) {
+        if (data.getElectrombile() == null || StringUtils.isEmpty(data.getElectrombile().getImei())) {
             throw new NbiotException(400, "");
         }
         logger.info("addRegistration-data:" + JSONObject.toJSONString(data));
         Tregistration registration = registrationService.addRegistration(data);
         if (registration == null) {
-            //RegisterExceptionEnum.E_0006.getMessage()
             return new Result(ResultConstant.FAILED, RegisterExceptionEnum.E_0006.getMessage());
         }
         return new Result(ResultConstant.SUCCESS, registration);

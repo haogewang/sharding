@@ -32,10 +32,10 @@ import java.util.Set;
 @Service
 @Transactional
 @CacheConfig(cacheNames = "aepDispacheHistoryLog")
-public class DeviceDispacheHistoryServiceimpl implements DeviceDispacheHistoryService {
+public class DeviceDispacheHistoryServiceImpl implements DeviceDispacheHistoryService {
 
 	@Resource
-	private DeviceDispachHistoryRepository dispachHistoryRepository;
+	private DeviceDispachHistoryRepository dispatchHistoryRepository;
 
 	@Autowired
 	private RedisUtil redisUtil;
@@ -45,7 +45,7 @@ public class DeviceDispacheHistoryServiceimpl implements DeviceDispacheHistorySe
 	public MyPage<TdeviceDispatchHistory> findAllByCriteria(Integer page, Integer size, String sorts, String orders, DeviceQuery deviceQuery) {
 		Sort sort = SortUtil.sort(sorts, orders, "id");
 		Pageable pageable = PageRequest.of(page, size, sort);
-		Page<TdeviceDispatchHistory> pages = dispachHistoryRepository.findAll(new Specification<TdeviceDispatchHistory>() {
+		Page<TdeviceDispatchHistory> pages = dispatchHistoryRepository.findAll(new Specification<TdeviceDispatchHistory>() {
 			private static final long serialVersionUID = 1L;
 			@Override
 			public Predicate toPredicate(Root<TdeviceDispatchHistory> root, CriteriaQuery<?> query, CriteriaBuilder criteriaBuilder) {
@@ -90,22 +90,22 @@ public class DeviceDispacheHistoryServiceimpl implements DeviceDispacheHistorySe
 
 	@Override
 	public Integer deleteById(Integer id) {
-		return dispachHistoryRepository.deleteByHistoryId(id);
+		return dispatchHistoryRepository.deleteByHistoryId(id);
 	}
 
 	@Override
 	public TdeviceDispatchHistory findByImei(String imei) {
-		return dispachHistoryRepository.findByImei(imei);
+		return dispatchHistoryRepository.findByImei(imei);
 	}
 
 	@Override
 	public TdeviceDispatchHistory save(TdeviceDispatchHistory entity) {
-		return dispachHistoryRepository.save(entity);
+		return dispatchHistoryRepository.save(entity);
 	}
 
 	@Override
 	public List<TdeviceDispatchHistory> saveAll(List<TdeviceDispatchHistory> list) {
-		return dispachHistoryRepository.saveAll(list);
+		return dispatchHistoryRepository.saveAll(list);
 	}
 
 	@Override

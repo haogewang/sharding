@@ -39,5 +39,10 @@ public class PolicyInfoServiceImpl implements PolicyInfoService {
 		return policyInfoRepository.findByImeiAndUserIdisNull(imei);
 	}
 
+	@Override
+	public TpolicyInfo findByImei(String imei) {
+		return policyInfoRepository.findByImei(imei);
+	}
+
 
 }

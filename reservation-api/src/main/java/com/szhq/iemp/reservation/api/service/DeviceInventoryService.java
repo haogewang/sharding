@@ -38,4 +38,5 @@ public interface DeviceInventoryService {
      TdeviceInventory findByIotDeviceId(String iotDeviceId);
 
      void deleteDeviceRedisKey();
+
 }

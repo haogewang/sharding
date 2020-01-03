@@ -181,7 +181,25 @@
             <appender-ref ref="ERROR_FILE"/>
         </root>
     </springProfile>
+    <springProfile name="bs">
+        <root level="info">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="DEBUG_FILE"/>
+            <appender-ref ref="INFO_FILE"/>
+            <appender-ref ref="WARN_FILE"/>
+            <appender-ref ref="ERROR_FILE"/>
+        </root>
+    </springProfile>
     <springProfile name="kfyd">
+        <root level="info">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="DEBUG_FILE"/>
+            <appender-ref ref="INFO_FILE"/>
+            <appender-ref ref="WARN_FILE"/>
+            <appender-ref ref="ERROR_FILE"/>
+        </root>
+    </springProfile>
+    <springProfile name="smx">
         <root level="info">
             <appender-ref ref="CONSOLE"/>
             <appender-ref ref="DEBUG_FILE"/>
@@ -201,4 +219,6 @@
     <logger name="com.alibaba.dubbo" level="ERROR"/>
     <logger name="com.iemp.zuul.filter.LoginFilter" level="ERROR"/>
     <logger name="com.iemp.zuul.common.MD5Util" level="ERROR"/>
+    <logger name="com.zaxxer.hikari.HikariConfig" level="DEBUG"/>
+    <!--<logger name="de.codecentric.boot.admin.client.registration.ApplicationRegistrator" level="DEBUG"/>-->
 </configuration>

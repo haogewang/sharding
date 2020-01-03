@@ -15,6 +15,7 @@ import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import java.io.Serializable;
 import java.util.Date;
+import java.util.List;
 
 /**
  * @author wanghao
@@ -30,7 +31,7 @@ public class TdeviceInventory extends BaseEntity {
 
     private static final long serialVersionUID = -6022878272751664164L;
 
-    @JsonSerialize(using = ToStringSerializer.class)
+//    @JsonSerialize(using = ToStringSerializer.class)
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -84,7 +85,7 @@ public class TdeviceInventory extends BaseEntity {
     private Date dispatchTime;
 
     @Column(columnDefinition = "datetime COMMENT '入库时间'")
-    private Date putStorageTime = new Date();
+    private Date putStorageTime;
     /**
      * 入库人员Id
      */
@@ -134,8 +135,15 @@ public class TdeviceInventory extends BaseEntity {
     private Integer groupId;
 
     private Boolean isActive = true;
+    /**
+     * 发货批号
+     */
+    private String deliverSn;
 
     @Transient
     private RegisterVo registerVo;
+
+    @Transient
+    private List<String> boxNumbers;
 
 }

@@ -22,4 +22,7 @@ public class TelectrombileVendor extends BaseEntity {
     private String name;
 
     private String searchIndex;
+
+    @Transient
+    private Integer electrombileVendorId;
 }

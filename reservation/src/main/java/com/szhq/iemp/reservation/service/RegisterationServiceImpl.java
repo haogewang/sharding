@@ -111,6 +111,10 @@ public class RegisterationServiceImpl implements RegistrationService {
     private PolicePrecinctService policePrecinctService;
     @Autowired
     private SaleRecordService saleRecordService;
+    @Autowired
+    private DeviceStoreHouseService storeHouseService;
+    @Autowired
+    private PolicyInfoService policyInfoService;
 
     @Resource(name = "primaryRedisUtil")
     private RedisUtil redisUtil;
@@ -118,75 +122,111 @@ public class RegisterationServiceImpl implements RegistrationService {
     private RedisUtil secondRedisUtil;
     @Autowired
     private RestTemplate restTemplate;
-    @Autowired
-    private NoTrackerElecmobileService noTrackerElecmobileService;
 
 
     @Override
     public Tregistration register(Tregistration data, Boolean isCreateUser) {
-        if (data == null || data.getElectrmobile() == null || data.getUser() == null) {
+        if (data == null || data.getElectrombile() == null || data.getUser() == null) {
             log.error("wrong parameter." + JSONObject.toJSONString(data));
             throw new NbiotException(400, "");
         }
-        Telectrmobile electrombile = data.getElectrmobile();
+        Telectrmobile electrombile = data.getElectrombile();
         Tuser user = data.getUser();
-        if (findByImei(electrombile.getImei()) != null) {
+        if (StringUtils.isNotEmpty(electrombile.getImei()) && findByImei(electrombile.getImei()) != null) {
             log.error("imei:" + electrombile.getImei() + " has registered!");
-            //RegisterExceptionEnum.E_00010
             throw new NbiotException(10000005, "");
         }
         validElecmobileVin(electrombile.getVin());
         validElecPlateNo(electrombile.getPlateNumber());
         validUserPhone(user.getPhone(), isCreateUser);
-//        TdeviceInventory deviceInventory = deviceInventoryService.findByImeiAndInstallSiteIdIsNotNull(electrombile.getImei());
-        TdeviceInventory deviceInventory = deviceInventoryService.findByImei(electrombile.getImei());
-        if (deviceInventory == null) {
-            log.error("device is not found.imei:" + electrombile.getImei());
-            //RegisterExceptionEnum.E_0007.getCode()
-            throw new NbiotException(10000004, "");
-        }
-        if(!CommonConstant.DEVICE_MODE_310.equals(deviceInventory.getModelNo())){
-            if(deviceInventory.getInstallSiteId() == null){
-                log.error("site is null.imei:" + electrombile.getImei());
-                //RegisterExceptionEnum.E_0007.getCode()
-                throw new NbiotException(10000004, "");
+        log.info("+++++imei+++++" + electrombile.getImei());
+        //无设备
+        if(StringUtils.isEmpty(electrombile.getImei())){
+            Tuser newUser = null;
+            if (isCreateUser && StringUtils.isEmpty(user.getId())) {
+                log.info("create new user.phone:" + user.getPhone());
+                newUser = createUser(null, user);
+                userPush(newUser);
             }
-        }
-        Tuser newUser = null;
-        if (isCreateUser) {
-            log.info("create new user.phone:" + user.getPhone());
-            newUser = createUser(deviceInventory, user);
-            userPush(newUser);
-        } else {
-            if (StringUtils.isEmpty(user.getId())) {
-                log.error("userId is null, phone:" + user.getPhone());
-                //UserExceptionEnum.E_0003
-                throw new NbiotException(200001, "用户Id不能为空");
+            else {
+                if (StringUtils.isEmpty(user.getId())) {
+                    log.error("userId is null. phone:" + user.getPhone());
+                    throw new NbiotException(200001, "用户Id不能为空");
+                }
+                validUser(user.getId());
+                newUser = userService.updateUser(user);
             }
-            validUser(user.getId());
-            newUser = userService.updateUser(user);
-        }
-        Telectrmobile newElectrombile = createElecmobile(electrombile, deviceInventory, newUser);
-        Tregistration registration = saveRegister(newElectrombile, newUser, deviceInventory, data.getPayNumber());
-        createElecUserRelationShip(newUser.getId(), newElectrombile.getElectrmobileId(), deviceInventory.getOperatorId());
-        updateDeviceInventoryStatus(newElectrombile.getImei());
-        saveDeviceInfo(deviceInventory);
-        sendRedisInfo(deviceInventory, newElectrombile.getImei());
-        if(CommonConstant.DEVICE_MODE_310.equals(deviceInventory.getModelNo())){
-            saveDeviceState(newElectrombile.getImei(), deviceInventory);
-        }
-//        addSaleRecord(deviceInventory);
-        deleteRegisterAndElecRedisKey();
-        if (StringUtils.isNotEmpty(data.getReservationNo())) {
-            reservationService.deleteByReserNo(data.getReservationNo());
-        }
-        TcommonConfig config = commonService.findByName(CommonConstant.LC_BROADCAST_KEY);
-        if (config != null && "true".equals(config.getValue())) {
-            if (!"rfid".equals(deviceInventory.getDevtype()) || !CommonConstant.DEVICE_MODE_310.equals(deviceInventory.getModelNo())) {
-                broadcastRegister3TdPlatform(registration);
+            Telectrmobile newElectrmobile = createElecmobile(electrombile, null, newUser, data.getOperator());
+            Tregistration registration = saveRegister(newElectrmobile, newUser, null, data.getPayNumber());
+            if(data.getOperator() != null){
+                createElecUserRelationShip(newUser.getId(), newElectrmobile.getElectrmobileId(), data.getOperator().getId());
+            }else{
+                log.error("data.getOperator is null.userId:" + newUser.getId());
+                throw new NbiotException(400, "参数错误");
             }
+            deleteRegisterAndElecRedisKey();
+            if (StringUtils.isNotEmpty(data.getReservationNo())) {
+                reservationService.deleteByReserNo(data.getReservationNo());
+            }
+            return registration;
         }
-        return registration;
+        //有设备
+        else{
+            TdeviceInventory deviceInventory = deviceInventoryService.findByImei(electrombile.getImei());
+            if (deviceInventory == null) {
+                log.error("device is not found.imei:" + electrombile.getImei());
+                throw new NbiotException(10000004, "设备不存在");
+            }
+            if(!CommonConstant.DEVICE_MODE_310.equals(deviceInventory.getModelNo())){
+                if(deviceInventory.getInstallSiteId() == null){
+                    log.error("site is null.imei:" + electrombile.getImei());
+                    throw new NbiotException(10000004, "未入库、已入库未分配的设备不可以注册");
+                }
+            }
+            Tuser newUser = null;
+            if (isCreateUser && StringUtils.isEmpty(user.getId())) {
+                log.info("create new user.phone:" + user.getPhone());
+                newUser = createUser(deviceInventory, user);
+                userPush(newUser);
+            } else {
+                if (StringUtils.isEmpty(user.getId())) {
+                    log.error("userId is null, phone:" + user.getPhone());
+                    throw new NbiotException(200001, "用户Id不能为空");
+                }
+                validUser(user.getId());
+                newUser = userService.updateUser(user);
+            }
+            Telectrmobile newElectrombile = createElecmobile(electrombile, deviceInventory, newUser, null);
+            Tregistration registration = saveRegister(newElectrombile, newUser, deviceInventory, data.getPayNumber());
+            createElecUserRelationShip(newUser.getId(), newElectrombile.getElectrmobileId(), deviceInventory.getOperatorId());
+            updateDeviceInventoryStatus(newElectrombile.getImei());
+            saveDeviceInfo(deviceInventory);
+            if(!"kfyd".equals(active)){
+                sendRedisInfo(deviceInventory, newElectrombile.getImei());
+            }
+            if(CommonConstant.DEVICE_MODE_310.equals(deviceInventory.getModelNo())){
+                saveDeviceState(newElectrombile.getImei(), deviceInventory);
+                //310设备有激活特性的绑定不记录,只记录激活
+                TdeviceStoreHouse storeHouse = storeHouseService.findById(deviceInventory.getStorehouseId());
+                if(storeHouse != null && !storeHouse.getIsActive()){
+                    addSaleRecord(deviceInventory);
+                }
+            }
+            else{
+                addSaleRecord(deviceInventory);
+            }
+            deleteRegisterAndElecRedisKey();
+            if (StringUtils.isNotEmpty(data.getReservationNo())) {
+                reservationService.deleteByReserNo(data.getReservationNo());
+            }
+            TcommonConfig config = commonService.findByName(CommonConstant.LC_BROADCAST_KEY);
+            if (config != null && "true".equals(config.getValue())) {
+                if (!"rfid".equals(deviceInventory.getDevtype()) || !CommonConstant.DEVICE_MODE_310.equals(deviceInventory.getModelNo())) {
+                    broadcastRegister3TdPlatform(registration);
+                }
+            }
+            return registration;
+        }
     }
 
     @Override
@@ -196,7 +236,6 @@ public class RegisterationServiceImpl implements RegistrationService {
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<Tregistration> pages = registerRepository.findAll(new Specification<Tregistration>() {
             private static final long serialVersionUID = 1L;
-
             @Override
             public Predicate toPredicate(Root<Tregistration> root, CriteriaQuery<?> query, CriteriaBuilder criteriaBuilder) {
                 List<Predicate> list = new ArrayList<Predicate>();
@@ -238,6 +277,9 @@ public class RegisterationServiceImpl implements RegistrationService {
                     if (StringUtils.isNotEmpty(aepQuery.getModelNo())) {
                         list.add(criteriaBuilder.equal(root.get("modelNo").as(String.class), aepQuery.getModelNo()));
                     }
+                    if (aepQuery.getIsHaveImei() != null && aepQuery.getIsHaveImei()) {
+                        list.add(criteriaBuilder.isNotNull(root.get("imei").as(String.class)));
+                    }
                     if (aepQuery.getCustom() != null) {
                         Expression<String> phoneEx = root.get("phone").as(String.class);
                         Predicate p1 = criteriaBuilder.like(phoneEx, "%" + aepQuery.getCustom() + "%");
@@ -255,7 +297,7 @@ public class RegisterationServiceImpl implements RegistrationService {
                 Predicate pred = criteriaBuilder.and(list.toArray(p));
                 Predicate predicatesPermission = criteriaBuilder.or(listor.toArray(por));
 //				return criteriaBuilder.and(list.toArray(p));
-                if (listor != null && listor.size() > 0) {
+                if (listor.size() > 0) {
                     return query.where(pred, predicatesPermission).getRestriction();
                 } else {
                     return criteriaBuilder.and(list.toArray(p));
@@ -270,13 +312,13 @@ public class RegisterationServiceImpl implements RegistrationService {
         log.info("update registration id:" + registration.getRegisterId());
         Tregistration oldRegistration = registerRepository.findByRegisterId(registration.getRegisterId());
         if (oldRegistration == null) {
-            //RegisterExceptionEnum.E_00013
-            throw new NbiotException(10000007, "");
+            throw new NbiotException(10000007, "该备案信息不存在");
         }
         Tregistration old = new Tregistration();
         BeanUtils.copyProperties(oldRegistration, old, PropertyUtil.getNullProperties(oldRegistration));
-        Telectrmobile newElectrombile = registration.getElectrmobile();
+        Telectrmobile newElectrombile = registration.getElectrombile();
         Tuser newUser = registration.getUser();
+        redisUtil.del(CommonConstant.ELEC_ID + oldRegistration.getElectrmobileId());
         Telectrmobile oldElectrmobile = electrombileService.findByElecId(oldRegistration.getElectrmobileId());
         Tuser oldUser = userService.findById(oldRegistration.getUserId());
         validUpdateRegisterParameter(oldElectrmobile, newElectrombile);
@@ -296,13 +338,22 @@ public class RegisterationServiceImpl implements RegistrationService {
             BeanUtils.copyProperties(newUser, oldUser, PropertyUtil.getNullProperties(newUser));
             log.info("修改用户信息:" + JSONObject.toJSONString(newUser, SerializerFeature.DisableCircularReferenceDetect));
             userService.add(oldUser);
-            if (StringUtils.isNotEmpty(oldUser.getIdNumber())) {
-                oldRegistration.setIdNumber(oldUser.getIdNumber());
-            }
-            if (StringUtils.isNotEmpty(oldUser.getName())) {
-                oldRegistration.setUsername(oldUser.getName());
+            List<Tregistration> result = new ArrayList<>();
+            List<Tregistration> registerList = findByUserId(oldUser.getId());
+            if(registerList != null && !registerList.isEmpty()){
+                for(Tregistration register : registerList){
+                    if (StringUtils.isNotEmpty(oldUser.getIdNumber())) {
+                        register.setIdNumber(oldUser.getIdNumber());
+                    }
+                    if (StringUtils.isNotEmpty(oldUser.getName())) {
+                        register.setUsername(oldUser.getName());
+                    }
+                    result.add(register);
+                }
+                saveAll(result);
             }
             redisUtil.del(CommonConstant.USER_ID + oldUser.getId());
+            redisUtil.del(CommonConstant.REGISTER_USERID + oldUser.getId());
         }
         BeanUtils.copyProperties(registration, oldRegistration, PropertyUtil.getNullProperties(registration));
         log.info("修改备案信息:" + JSONObject.toJSONString(oldRegistration, SerializerFeature.DisableCircularReferenceDetect));
@@ -312,10 +363,10 @@ public class RegisterationServiceImpl implements RegistrationService {
         redisUtil.del(CommonConstant.REGISTER_ID + oldRegistration.getRegisterId());
         TcommonConfig config = commonService.findByName(CommonConstant.LC_BROADCAST_KEY);
         if (config != null && "true".equals(config.getValue())) {
-            if (!"rfid".equals(oldElectrmobile.getDevtype())) {
-                oldRegistration.setElectrmobile(oldElectrmobile);
+            if (oldElectrmobile != null && !"rfid".equals(oldElectrmobile.getDevtype())) {
+                oldRegistration.setElectrombile(oldElectrmobile);
                 oldRegistration.setUser(oldUser);
-                broadcastupdateRegister3TdPlatform(oldRegistration);
+                broadcastUpdateRegister3TdPlatform(oldRegistration);
             }
         }
         return 1;
@@ -327,10 +378,12 @@ public class RegisterationServiceImpl implements RegistrationService {
             log.info("changeImei registration id:" + registrationId);
             Tregistration oldRegistration = validOldRegisterInfo(registrationId);
             String oldImei = oldRegistration.getImei();
+            redisUtil.del(CommonConstant.ELEC_ID + oldRegistration.getElectrmobileId());
+            redisUtil.del(CommonConstant.REGISTER_ID + registrationId);
             Telectrmobile oldElectrombile = electrombileService.findByElecId(oldRegistration.getElectrmobileId());
             if (!newImei.equals(oldImei)) {
-                TdeviceInventory newDeviceInventory = deviceInventoryService.findByImeiAndInstallSiteIdIsNotNull(newImei);
-                validNewDeviceInventory(newImei, oldImei, newDeviceInventory);
+                TdeviceInventory newDevice = deviceInventoryService.findByImeiAndInstallSiteIdIsNotNull(newImei);
+                validNewDeviceInventory(newImei, oldImei, newDevice);
                 TdeviceInventory deviceInventory = updateNewDeviceInventory(newImei);
                 updateOldDeviceInventory(oldImei);
                 deleteOldImeiData(oldImei);
@@ -342,7 +395,7 @@ public class RegisterationServiceImpl implements RegistrationService {
                     Toperator operator = operatorService.findById(deviceInventory.getOperatorId());
                     if (operator == null) {
                         log.error("device has no operator.imei:" + newImei);
-                        throw new NbiotException(500, OperatorExceptionEnum.E_0002.getMessage());
+                        throw new NbiotException(600001, OperatorExceptionEnum.E_0002.getMessage());
                     }
                     oldRegistration.setOperatorId(operator.getId());
                 }
@@ -350,23 +403,25 @@ public class RegisterationServiceImpl implements RegistrationService {
                     TinstallSite site = installSiteService.findById(deviceInventory.getInstallSiteId());
                     if (site == null) {
                         log.error("device has no site.imei:" + newImei);
-                        throw new NbiotException(500, SiteExceptionEnum.E_0005.getMessage());
+                        throw new NbiotException(700003, SiteExceptionEnum.E_0005.getMessage());
                     }
                     oldRegistration.setInstallSiteId(site.getInstallSiteId());
                     oldRegistration.setInstallSiteName(site.getName());
                 }
                 save(oldRegistration);
-                saveUpdateRegisterLog(oldRegistration, newImei, oldImei, oldElectrombile.getPlateNumber(), newDeviceInventory.getOperatorId());
+                saveUpdateRegisterLog(oldRegistration, newImei, oldImei, oldElectrombile.getPlateNumber(), newDevice.getOperatorId());
                 int i = nbiotDeviceInfoService.deleteByImei(oldImei);
                 log.info("delete nbiot device info success." + i);
-                saveDeviceInfo(newDeviceInventory);
+                saveDeviceInfo(newDevice);
                 deleteRegisterAndElecRedisKey();
                 deleteReidsImei(oldImei);
                 deleteReidsImei(newImei);
-                sendRedisInfo(newDeviceInventory, newImei);
+                if(!"kfyd".equals(active)){
+                    sendRedisInfo(newDevice, newImei);
+                }
                 TcommonConfig config = commonService.findByName(CommonConstant.LC_BROADCAST_KEY);
                 if (config != null && "true".equals(config.getValue())) {
-                    if (!"rfid".equals(newDeviceInventory.getDevtype())) {
+                    if (!"rfid".equals(newDevice.getDevtype())) {
                         broadcastchangeImei3TdPlatform(registrationId, newImei);
                     }
                 }
@@ -377,8 +432,7 @@ public class RegisterationServiceImpl implements RegistrationService {
             }
         } catch (Exception e) {
             log.error("e", e);
-            //RegisterExceptionEnum.E_00020.getMessage()
-            throw new NbiotException(10000014, "");
+            throw new NbiotException(10000014, "更换设备失败");
         }
     }
 
@@ -392,7 +446,7 @@ public class RegisterationServiceImpl implements RegistrationService {
                 userPhone = registration.getPhone();
                 if (StringUtils.isEmpty(userPhone)) {
                     log.error("userPhone is not exist,register id is:" + id);
-                    throw new NbiotException(200002, "");
+                    throw new NbiotException(200002, "用户不存在");
                 }
                 String userId = registration.getUserId();
                 if (countByUserId(userId) == 1) {
@@ -400,50 +454,78 @@ public class RegisterationServiceImpl implements RegistrationService {
                     userService.delete(userId);
                 }
             }
-            Telectrmobile telectrombile = electrombileService.findByElecId(registration.getElectrmobileId());
-            if (telectrombile != null) {
-                int i = elecmobileUserService.deleteByElecId(telectrombile.getElectrmobileId());
-                log.info("delete elec-user success,count is:" + i + ",elecId is:" + telectrombile.getElectrmobileId());
+            Telectrmobile electrombile = electrombileService.findByElecId(registration.getElectrmobileId());
+            if (electrombile != null) {
+                redisUtil.del(CommonConstant.ELEC_ID + electrombile.getElectrmobileId());
+                redisUtil.del(CommonConstant.ELEC_PLATENUMBER + electrombile.getPlateNumber());
+                int i = elecmobileUserService.deleteByElecId(electrombile.getElectrmobileId());
+                log.info("delete elec-user success,count is:" + i + ",elecId is:" + electrombile.getElectrmobileId());
             }
             if (StringUtils.isNotEmpty(imei)) {
                 TdeviceInventory device = deviceInventoryService.findByImei(imei);
                 if (device != null) {
                     deleteRedisData(device);
                 }
-                deviceInventoryService.updateDevStat(imei, 0);
+                deviceInventoryService.updateDevStat(imei, 2);
                 electrombileService.deleteByImei(imei);
                 int i = nbiotDeviceInfoService.deleteByImei(imei);
                 log.info("delete nbiotDeviceInfo, imei:{},i:{}", imei, i);
                 deleteOldImeiData(imei);
-                deleteRegisterAndElecRedisKey();
+                deletePolicyInfo(imei);
             }
-        }
-        delete(id);
-        redisUtil.del(CommonConstant.REGISTER_ID + id);
-        TcommonConfig config = commonService.findByName(CommonConstant.LC_BROADCAST_KEY);
-        if (config != null && "true".equals(config.getValue())) {
-            TdeviceInventory device = deviceInventoryService.findByImei(imei);
-            if (!"rfid".equals(device.getDevtype()) || !CommonConstant.DEVICE_MODE_310.equals(device.getModelNo())) {
-                broadCastDeleteRegister3TdPlatform(id);
+            deleteRegisterAndElecRedisKey();
+            delete(registration, electrombile, null);
+            redisUtil.del(CommonConstant.REGISTER_ID + id);
+            redisUtil.del(CommonConstant.REGISTER_IMEI + imei);
+            redisUtil.del(CommonConstant.REGISTER_USERID + registration.getUserId());
+            redisUtil.del(CommonConstant.DEVICE_IMEI + imei);
+            TcommonConfig config = commonService.findByName(CommonConstant.LC_BROADCAST_KEY);
+            if (config != null && "true".equals(config.getValue())) {
+                TdeviceInventory device = deviceInventoryService.findByImei(imei);
+                if (!"rfid".equals(device.getDevtype()) || !CommonConstant.DEVICE_MODE_310.equals(device.getModelNo())) {
+                    broadCastDeleteRegister3TdPlatform(id);
+                }
             }
         }
     }
 
     @Override
-    public Tregistration delete(Long id) {
+    public Integer deleteRegister(Long id) {
         Tregistration register = findById(id);
-        if (register != null) {
-            log.info("delete registerId is:" + id);
-            registerRepository.deleteByRegisterId(id);
-            saveDeleteRegisterLog(register);
-            log.info("delete register success, registerId is:" + id);
+        if(register == null){
+            throw new NbiotException(10000007, "该备案信息不存在");
+        }
+        if(StringUtils.isNotEmpty(register.getImei())){
+            deleteRegistration(id, register.getImei(), false);
+        }
+        else{
+            deleteRegistration(id, null, false);
+        }
+        return 1;
+    }
+
+    @Override
+    public Tregistration delete(Tregistration registration, Telectrmobile electrmobile, Tuser user) {
+//        Tregistration register = findById(id);
+        if (registration != null) {
+            log.info("delete registerId is:{}",registration.getRegisterId());
+            registerRepository.deleteByRegisterId(registration.getRegisterId());
+            registration.setElectrombile(electrmobile);
+            registration.setUser(user);
+            saveDeleteRegisterLog(registration);
+            log.info("delete register success, registerId is:" + registration.getRegisterId());
         }
         return null;
     }
 
     @Override
+    public Integer deleteByElecId(Long elecId) {
+        return registerRepository.deleteByElecId(elecId);
+    }
+
+    @Override
     public Tregistration addRegistration(Tregistration data) {
-        String imei = data.getElectrmobile().getImei();
+        String imei = data.getElectrombile().getImei();
         TdeviceInventory deviceInventory = deviceInventoryService.findByImei(imei);
         validDeviceInfo(deviceInventory);
         //添加电动车
@@ -452,7 +534,7 @@ public class RegisterationServiceImpl implements RegistrationService {
             Tuser user = userService.findById(userId);
             if(user == null){
                 log.error("use not found.id:" + userId);
-                throw new NbiotException(200002, "");
+                throw new NbiotException(200002, "用户不存在");
             }
             Tuser tuser = userService.updateUser(data.getUser());
             Tregistration register = register(data, false);
@@ -490,18 +572,15 @@ public class RegisterationServiceImpl implements RegistrationService {
     @Override
     public Tregistration save(Tregistration registration) {
         Tregistration entity = registerRepository.save(registration);
-        if (entity != null) {
-            log.info("register save successfully. id is {}", entity.getRegisterId());
-            return entity;
-        }
-        log.error("register save failed.", JSONObject.toJSONString(registration));
-        return null;
+        redisUtil.del(CommonConstant.REGISTER_ID + registration.getRegisterId());
+        log.info("save register success.id:" + entity.getRegisterId());
+        return entity;
     }
 
     @Override
     public Tregistration findByImei(String imei) {
-        String registImeiString = (String) redisUtil.get(CommonConstant.REGISTER_IMEI + imei);
-        if (StringUtils.isEmpty(registImeiString)) {
+        String registerImeiString = (String) redisUtil.get(CommonConstant.REGISTER_IMEI + imei);
+        if (StringUtils.isEmpty(registerImeiString)) {
             Tregistration registration = registerRepository.findByImei(imei);
             if (registration != null) {
                 redisUtil.set(CommonConstant.REGISTER_IMEI + imei, JSON.toJSONString(registration));
@@ -509,7 +588,26 @@ public class RegisterationServiceImpl implements RegistrationService {
             return registration;
         }
         log.info("get register data from redis.imei:" + imei);
-        return JSONObject.parseObject(registImeiString, Tregistration.class);
+        return JSONObject.parseObject(registerImeiString, Tregistration.class);
+//        Tregistration registration = registerRepository.findByImei(imei);
+//        return registration;
+    }
+
+    @Override
+    public List<Tregistration> findByUserId(String userId) {
+        String registerString = (String) redisUtil.get(CommonConstant.REGISTER_USERID + userId);
+        ListTranscoder<Tregistration> listTranscoder = new ListTranscoder<Tregistration>();
+        if (StringUtils.isEmpty(registerString)) {
+            List<Tregistration> registrations = registerRepository.findByUserId(userId);
+            if (registrations != null && !registrations.isEmpty()) {
+                redisUtil.set(CommonConstant.REGISTER_USERID + userId, listTranscoder.serialize(registrations));
+            }
+            return registrations;
+        }
+        log.info("get register data from redis.userId:" + userId);
+        Object o = listTranscoder.deserialize(registerString);
+        return (List<Tregistration>) o;
+//        return registerRepository.findByUserId(userId);
     }
 
     @Override
@@ -521,7 +619,7 @@ public class RegisterationServiceImpl implements RegistrationService {
             ExportExcelUtils.exportExcel(response, excelName, data);
         } catch (Exception e) {
             log.error("e", e);
-            throw new NbiotException(500, "");
+            throw new NbiotException(500, "导出失败");
         }
     }
 
@@ -549,13 +647,18 @@ public class RegisterationServiceImpl implements RegistrationService {
         if (StringUtils.isEmpty(registerString)) {
             Tregistration registration = registerRepository.findByRegisterId(id);
             if (registration != null) {
-                redisUtil.set(CommonConstant.REGISTER_ID + id, JSON.toJSONString(registration));
+                redisUtil.set(CommonConstant.REGISTER_ID + id, JSON.toJSONString(registration), 1, TimeUnit.DAYS);
             }
             return registration;
         }
         log.info("get register data from redis.id:" + id);
         Tregistration registration = JSONObject.parseObject(registerString, Tregistration.class);
         return registration;
+    }
+
+    @Override
+    public Tregistration findByPlateNo(String plateNo) {
+        return registerRepository.findByPlateNo(plateNo);
     }
 
     @Override
@@ -576,8 +679,7 @@ public class RegisterationServiceImpl implements RegistrationService {
 
     @Override
     public Integer deleteByImei(String imei) {
-        int i = registerRepository.deleteByImei(imei);
-        return i;
+        return registerRepository.deleteByImei(imei);
     }
 
     @Override
@@ -594,26 +696,57 @@ public class RegisterationServiceImpl implements RegistrationService {
         return null;
     }
 
+    @Override
+    public List<Tregistration> findByUserIdAndOperatorIdsAndType(String userId, List<Integer> operatorIds, String type) {
+        return registerRepository.findByUserIdAndOperatorIdsAndType(userId, operatorIds, type);
+    }
+
+    @Override
+    public List<String> findByUserNameLikeAndImeiIsNotNUll(String ownerName) {
+        return registerRepository.findByUserNameLikeAndImeiIsNotNUll(ownerName);
+    }
+
+    @Override
+    public List<String> findByUserIdAndImeiIsNotNUll(String ownerId) {
+        return registerRepository.findByUserIdAndImeiIsNotNull(ownerId);
+    }
+
+    private void deletePolicyInfo(String imei) {
+        TpolicyInfo policyInfo = policyInfoService.findByImei(imei);
+        if(policyInfo != null && !policyInfo.getIsEffective() && StringUtils.isEmpty(policyInfo.getPlateNo())){
+            policyInfo.setUserId(null);
+            policyInfoService.save(policyInfo);
+        }
+    }
+
+    private void saveAll(List<Tregistration> result) {
+        registerRepository.saveAll(result);
+    }
+
     /**
      * 添加销售记录
      */
-//    private void addSaleRecord(TdeviceInventory device) {
-//        TsaleRecord saleRecord = saleRecordService.findByImeiAndMode(device.getImei(), 2);
-//        if (saleRecord == null) {
-//            saleRecord = new TsaleRecord();
-//            saleRecord.setImei(device.getImei());
-//            saleRecord.setMode(2);
-//            saleRecord.setOperatorId(device.getOperatorId());
-//            saleRecord.setStorehouseId(device.getStorehouseId());
-//            saleRecordService.add(saleRecord);
-//        }
-//    }
+    public void addSaleRecord(TdeviceInventory device) {
+        TsaleRecord saleRecord = saleRecordService.findByImeiAndMode(device.getImei(), 2);
+        if (saleRecord == null) {
+            saleRecord = new TsaleRecord();
+            saleRecord.setImei(device.getImei());
+            saleRecord.setMode(2);
+            saleRecord.setOperatorId(device.getOperatorId());
+            saleRecord.setStorehouseId(device.getStorehouseId());
+            saleRecordService.add(saleRecord);
+        }
+        else {
+            saleRecord.setUpdateTime(new Date());
+            saleRecordService.add(saleRecord);
+        }
+    }
 
     private boolean getRegisterInfo(Tregistration register) {
         if (register != null) {
             Telectrmobile electrmobile = electrombileService.findByElecId(register.getElectrmobileId());
             Tuser user = userService.findById(register.getUserId());
-            register.setElectrmobile(electrmobile);
+            register.setElectrombile(electrmobile);
             register.setUser(user);
             return true;
         }
@@ -652,27 +785,28 @@ public class RegisterationServiceImpl implements RegistrationService {
     /**
      * 创建电动车
      */
-    private Telectrmobile createElecmobile(Telectrmobile electrombile, TdeviceInventory deviceInventory, Tuser newUser) {
-        setElecValue(electrombile, deviceInventory, newUser, installSiteService);
+    public Telectrmobile createElecmobile(Telectrmobile electrombile, TdeviceInventory device, Tuser newUser, Toperator operator) {
+        setElecValue(electrombile, device, newUser, installSiteService, operator);
         Telectrmobile newElectrombile = electrombileService.createElectrombile(electrombile);
+        redisUtil.del(CommonConstant.ELEC_ID + newElectrombile.getElectrmobileId());
         return newElectrombile;
     }
 
-    static void setElecValue(Telectrmobile electrombile, TdeviceInventory deviceInventory, Tuser newUser,
-                             InstallSiteService installSiteService) {
-        if (deviceInventory.getStorehouseId() != null) {
+    public static void setElecValue(Telectrmobile electrombile, TdeviceInventory deviceInventory, Tuser newUser,
+                             InstallSiteService installSiteService, Toperator workerOperator) {
+        if (deviceInventory != null && deviceInventory.getStorehouseId() != null) {
             electrombile.setStorehouseId(deviceInventory.getStorehouseId());
             electrombile.setStorehouseName(deviceInventory.getStorehouseName());
         }
-        if (deviceInventory.getRegionId() != null) {
+        if (deviceInventory != null && deviceInventory.getRegionId() != null) {
             electrombile.setRegionId(deviceInventory.getRegionId());
             electrombile.setRegionName(deviceInventory.getRegionName());
         }
-        if (deviceInventory.getManufactorId() != null) {
+        if (deviceInventory != null && deviceInventory.getManufactorId() != null) {
             electrombile.setManufactorId(deviceInventory.getManufactorId());
             electrombile.setManufactorName(deviceInventory.getManufactorName());
         }
-        if (deviceInventory.getInstallSiteId() != null) {
+        if (deviceInventory != null && deviceInventory.getInstallSiteId() != null) {
             electrombile.setInstallSiteId(deviceInventory.getInstallSiteId());
             electrombile.setInstallSiteName(deviceInventory.getInstallSiteName());
             TinstallSite site = installSiteService.findById(deviceInventory.getInstallSiteId());
@@ -681,25 +815,29 @@ public class RegisterationServiceImpl implements RegistrationService {
                 electrombile.setPoliceName(site.getPoliceName());
             }
         }
-        if (deviceInventory.getIotTypeId() != null) {
+        if (deviceInventory != null && deviceInventory.getIotTypeId() != null) {
             electrombile.setIotTypeId(deviceInventory.getIotTypeId());
             electrombile.setIotTypeName(deviceInventory.getIotTypeName());
         }
-        if (deviceInventory.getOperatorId() != null) {
+        if (deviceInventory != null && deviceInventory.getOperatorId() != null) {
             electrombile.setOperatorId(deviceInventory.getOperatorId());
             electrombile.setOperatorName(deviceInventory.getOperatorName());
         }
-        if(StringUtils.isNotEmpty(deviceInventory.getDevname())){
+        else if(workerOperator != null){
+            electrombile.setOperatorId(workerOperator.getId());
+            electrombile.setOperatorName(workerOperator.getName());
+        }
+        if(deviceInventory != null && StringUtils.isNotEmpty(deviceInventory.getDevname())){
             electrombile.setDevname(deviceInventory.getDevname());
         }
         if (newUser != null) {
             electrombile.setOwnerId(newUser.getId());
             electrombile.setOwnerName(newUser.getName());
         }
-        if(StringUtils.isNotEmpty(deviceInventory.getModelNo())){
+        if(deviceInventory != null && StringUtils.isNotEmpty(deviceInventory.getModelNo())){
             electrombile.setModelNo(deviceInventory.getModelNo());
         }
-        if(StringUtils.isNotEmpty(deviceInventory.getDevtype())){
+        if(deviceInventory != null && StringUtils.isNotEmpty(deviceInventory.getDevtype())){
             electrombile.setDevtype(deviceInventory.getDevtype());
         }
     }
@@ -754,10 +892,10 @@ public class RegisterationServiceImpl implements RegistrationService {
             oldElectrombile.setDevname(device.getDevname());
         }
         if(!Objects.equals(oldElectrombile.getDevtype(), device.getDevtype())){
-            oldElectrombile.setDevname(device.getDevtype());
+            oldElectrombile.setDevtype(device.getDevtype());
         }
         if(!Objects.equals(oldElectrombile.getModelNo(), device.getModelNo())){
-            oldElectrombile.setDevname(device.getModelNo());
+            oldElectrombile.setModelNo(device.getModelNo());
         }
         if(!Objects.equals(oldElectrombile.getOperatorId(), device.getOperatorId())){
             oldElectrombile.setOperatorId(device.getOperatorId());
@@ -802,12 +940,12 @@ public class RegisterationServiceImpl implements RegistrationService {
         if (oldDevice != null) {
             oldDevice.setDevstate(2);
             deviceInventoryService.save(oldDevice);
-            redisUtil.del(CommonConstant.DEVICE_IMEI + oldImei);
+//            redisUtil.del(CommonConstant.DEVICE_IMEI + oldImei);
+//            deviceInventoryService.deleteRedisDeviceImeiByImei(oldImei);
             log.info("update old device devstate success, oldImei is:" + oldImei);
         } else {
             log.error("old device is not exist,imei is:" + oldImei);
-            //RegisterExceptionEnum.E_0002
-            throw new NbiotException(10000001, "");
+            throw new NbiotException(10000001, "设备不存在");
         }
     }
 
@@ -825,13 +963,18 @@ public class RegisterationServiceImpl implements RegistrationService {
     /**
      * 保存新增备案
      */
-    private Tregistration saveRegister(Telectrmobile electrombile, Tuser user, TdeviceInventory deviceInventory, String payNumber) {
+    private Tregistration saveRegister(Telectrmobile electrombile, Tuser user, TdeviceInventory device, String payNumber) {
         Tregistration registration = new Tregistration();
-        registration.setImei(deviceInventory.getImei());
-        registration.setOperatorId(deviceInventory.getOperatorId());
-        registration.setInstallSiteId(deviceInventory.getInstallSiteId());
-        registration.setInstallSiteName(deviceInventory.getInstallSiteName());
-        registration.setIsp(deviceInventory.getIsp());
+        if(device != null){
+            registration.setImei(device.getImei());
+            registration.setOperatorId(device.getOperatorId());
+            registration.setInstallSiteId(device.getInstallSiteId());
+            registration.setInstallSiteName(device.getInstallSiteName());
+            registration.setIsp(device.getIsp());
+            registration.setModelNo(device.getModelNo());
+        }else{
+            registration.setOperatorId(electrombile.getOperatorId());
+        }
         registration.setPayNumber(payNumber);
         registration.setElectrmobileId(electrombile.getElectrmobileId());
         registration.setPlateNumber(electrombile.getPlateNumber());
@@ -842,11 +985,10 @@ public class RegisterationServiceImpl implements RegistrationService {
         Tregistration tregistration = save(registration);
         if (tregistration == null) {
             log.error("新增备案信息失败：" + registration.toString());
-            //RegisterExceptionEnum.E_0006
-            throw new NbiotException(10000003, "");
+            throw new NbiotException(10000003, "新增备案信息失败");
         }
         tregistration.setUser(user);
-        tregistration.setElectrmobile(electrombile);
+        tregistration.setElectrombile(electrombile);
         return tregistration;
     }
 
@@ -868,13 +1010,11 @@ public class RegisterationServiceImpl implements RegistrationService {
     private Tregistration validOldRegisterInfo(Long registrationId) {
         Tregistration oldRegistration = registerRepository.findByRegisterId(registrationId);
         if (oldRegistration == null) {
-            //RegisterExceptionEnum.E_00013
-            throw new NbiotException(10000007, "");
+            throw new NbiotException(10000007, "该备案信息不存在");
         }
         if (StringUtils.isEmpty(oldRegistration.getImei())) {
             log.error("imei is null,registerId is :" + registrationId);
-            //RegisterExceptionEnum.E_00015
-            throw new NbiotException(10000009, "");
+            throw new NbiotException(10000009, "该备案信息有误");
         }
         return oldRegistration;
     }
@@ -885,7 +1025,7 @@ public class RegisterationServiceImpl implements RegistrationService {
     private void validUpdateRegisterParameter(Telectrmobile oldElectrombile, Telectrmobile newElectrombile) {
         if (newElectrombile == null) {
             log.error("electrombile is null.");
-            throw new NbiotException(400, "");
+            throw new NbiotException(400, "参数错误");
         }
         if (!oldElectrombile.getVin().equals(newElectrombile.getVin())) {
             validElecmobileVin(newElectrombile.getVin());
@@ -902,7 +1042,7 @@ public class RegisterationServiceImpl implements RegistrationService {
         if (null == newDevice) {
             log.error("设备未注册：" + newImei);
             //RegisterExceptionEnum.E_0002
-            throw new NbiotException(10000001, "");
+            throw new NbiotException(10000001, "设备未注册");
         }
 //		TdeviceInventory oldDeviceInventory = deviceInventoryService.findByImei(oldImei);
 //		if(oldDeviceInventory.getInstallSite() != null && newDeviceInventory.getInstallSite() != null) {
@@ -915,13 +1055,13 @@ public class RegisterationServiceImpl implements RegistrationService {
         if (Objects.equals(1, newDevice.getDevstate())) {
             log.error("the device has installed. imei:{}", newImei);
             //RegisterExceptionEnum.E_00010
-            throw new NbiotException(10000005, "");
+            throw new NbiotException(10000005, "该设备已安装");
         }
         //华强仓库下
         if(Objects.equals(1, newDevice.getStorehouseId())){
             log.error("the device storehouse in HQ. imei:{}", newImei);
             //RegisterExceptionEnum.E_0007
-            throw new NbiotException(10000004, "");
+            throw new NbiotException(10000004, "未入库、已入库未分配的设备不可以注册");
         }
     }
     /**
@@ -929,11 +1069,9 @@ public class RegisterationServiceImpl implements RegistrationService {
      */
     public void validElecPlateNo(String plateNo) {
         Telectrmobile elec = electrombileService.findByPlateNumber(plateNo);
-        TnoTrackerElec noTrackerElec = noTrackerElecmobileService.findByPlateNumber(plateNo);
-        if (elec != null || noTrackerElec != null) {
+        if (elec != null) {
             log.error("plateno exist! plateNO:" + plateNo);
-            //ElectrombileExceptionEnum.E_0005
-            throw new NbiotException(3000003, "");
+            throw new NbiotException(3000003, "电动车车牌已存在");
         }
     }
     /**
@@ -941,15 +1079,12 @@ public class RegisterationServiceImpl implements RegistrationService {
      */
     public void validElecmobileVin(String vin) {
         if (StringUtils.isEmpty(vin)) {
-            //ElectrombileExceptionEnum.E_00013
-            throw new NbiotException(3000010, "");
+            throw new NbiotException(3000010, "车架号不能为空");
         }
         List<Telectrmobile> electrombiles = electrombileService.findByVin(vin);
-        TnoTrackerElec noTrackerElec = noTrackerElecmobileService.findByVin(vin);
-        if ((electrombiles != null && electrombiles.size() > 0) || noTrackerElec != null) {
+        if (electrombiles != null && electrombiles.size() > 0) {
             log.error("vin exist.vin:" + vin);
-            //ElectrombileExceptionEnum.E_00012
-            throw new NbiotException(3000009, "");
+            throw new NbiotException(3000009, "车架号已存在");
         }
     }
 
@@ -960,7 +1095,6 @@ public class RegisterationServiceImpl implements RegistrationService {
         Tuser user = userService.findById(userId);
         if (user == null) {
             log.error("valid user wrong.user is not exist. userId:" + userId);
-            //UserExceptionEnum.E_0004
             throw new NbiotException(200002, "用户不存在");
         }
         return user;
@@ -971,20 +1105,18 @@ public class RegisterationServiceImpl implements RegistrationService {
             Tuser tuser = userService.findByPhone(phone);
             if (tuser != null) {
                 log.error("phone has exist. phone:" + phone);
-                //RegisterExceptionEnum.E_00018
-                throw new NbiotException(10000012, "");
+                throw new NbiotException(10000012, "登录账号已存在");
             }
         }
         else if(valid){
-            //RegisterExceptionEnum.E_00019
-            throw new NbiotException(10000013, "");
+            throw new NbiotException(10000013, "登录账号不能为空");
         }
     }
 
     /**
      * 创建user
      */
-    public Tuser createUser(TdeviceInventory deviceInventory, Tuser tuser) {
+    private Tuser createUser(TdeviceInventory deviceInventory, Tuser tuser) {
         String userId = StringUtil.createUUID();
         tuser.setId(userId);
         tuser.setCreateTime(TimeStampUtil.getTs());
@@ -1026,7 +1158,7 @@ public class RegisterationServiceImpl implements RegistrationService {
     /**
      * 保存删除的register记录
      */
-    private void saveDeleteRegisterLog(Tregistration registration) {
+    public void saveDeleteRegisterLog(Tregistration registration) {
         TregistrationLog log = new TregistrationLog();
         log.setRegisterId(registration.getRegisterId());
         log.setType(3);
@@ -1120,7 +1252,7 @@ public class RegisterationServiceImpl implements RegistrationService {
     /**
      * 删除redis中key
      */
-    private void deleteRegisterAndElecRedisKey() {
+    public void deleteRegisterAndElecRedisKey() {
         deleteRedisSet(CommonConstant.REGISER_PATTERN);
         deleteRedisSet(CommonConstant.ELEC_PATTERN);
     }
@@ -1132,7 +1264,6 @@ public class RegisterationServiceImpl implements RegistrationService {
         deleteSecondRedis(CommonConstant.REGISTER_KEY, device.getIotDeviceId(), "register-");
         deleteSecondRedis(CommonConstant.REGISTER_KEY, device.getImei(), "register-");
         deleteSecondRedis(CommonConstant.OPERATOR_IMEI_KEY, device.getImei(), "operator-imei-");
-
     }
 
     private void deleteSecondRedis(String key, String imei, String s) {
@@ -1142,13 +1273,13 @@ public class RegisterationServiceImpl implements RegistrationService {
         }
     }
 
-    private void deleteRedisByImei(String imei) {
+    public void deleteRedisByImei(String imei) {
         String imeiKey = CommonConstant.REGISTER_IMEI + imei;
         String deviceKey = CommonConstant.DEVSTATE_IMEI + imei;
         String registerDeviceIdKey = CommonConstant.OPERATOR_IMEI_KEY + imei;
         String registerAllInfoKey = CommonConstant.REGISTER_KEY + imei;
         String elecInfoKey = CommonConstant.ELEC_IMEI + imei;
-        String deviceImeiKey = CommonConstant.DEVICE_IMEI + imei;
+//        String deviceImeiKey = CommonConstant.DEVICE_IMEI + imei;
         String devStateImeiKey = CommonConstant.STATUS_IMEI + imei;
         String rtDataKey = CommonConstant.RT_DATA_KEY + imei;
         String rtDataImeiKey = CommonConstant.RTDATA_IMEI_KEY + imei;
@@ -1158,7 +1289,8 @@ public class RegisterationServiceImpl implements RegistrationService {
         deleteRedisByKey(registerDeviceIdKey);
         deleteRedisByKey(registerAllInfoKey);
         deleteRedisByKey(elecInfoKey);
-        deleteRedisByKey(deviceImeiKey);
+//        deleteRedisByKey(deviceImeiKey);
+//        deleteRedisDeviceImeiByImei(imei);
         deleteRedisByKey(devStateImeiKey);
         deleteRedisByKey(rtDataKey);
         deleteRedisByKey(rtDataImeiKey);
@@ -1198,6 +1330,13 @@ public class RegisterationServiceImpl implements RegistrationService {
         }
     }
 
+//    private void deleteRedisDeviceImeiByImei(String imei) {
+//        if (redisUtil.hHasKey(CommonConstant.DEVICE_IMEI, imei)) {
+//            redisUtil.hdel(CommonConstant.DEVICE_IMEI, imei);
+//            log.info("redis delete key [" + CommonConstant.DEVICE_IMEI + imei + "] success");
+//        }
+//    }
+
     /**
      * 填充excel数据
      */
@@ -1208,7 +1347,6 @@ public class RegisterationServiceImpl implements RegistrationService {
         List<List<String>> rows = new LinkedList<>();
         if (list != null && list.size() > 0) {
             addExcelCellData(list, rows);
-//            rows.add(row);
             log.info("export list size is:" + list.size());
             data.setRows(rows);
         }
@@ -1227,7 +1365,7 @@ public class RegisterationServiceImpl implements RegistrationService {
             row.add(view.getPlateNumber());
             row.add(view.getUsername());
             row.add(view.getBirthPlace());
-            row.add(view.getContactPhone());
+//            row.add(view.getContactPhone());
             row.add(view.getIdNumber());
             if (view.getCreateTime() != null) {
                 row.add(view.getCreateTime().toString());
@@ -1254,8 +1392,11 @@ public class RegisterationServiceImpl implements RegistrationService {
     }
 
     private List<TregisterView> findAllByDate(RegisterQuery aepQuery) {
+        if(aepQuery == null){
+            return null;
+        }
         List<Map<String, Object>> lists = null;
-        if (aepQuery != null && aepQuery.getOperatorIdList() != null) {
+        if (aepQuery.getOperatorIdList() != null) {
             lists = registerRepository.exportAllByTime(aepQuery.getStartTime(), aepQuery.getEndTime(), aepQuery.getOperatorIdList());
         } else {
             lists = registerRepository.exportAllByTime(aepQuery.getStartTime(), aepQuery.getEndTime());
@@ -1269,10 +1410,10 @@ public class RegisterationServiceImpl implements RegistrationService {
                 String imei = (String) map.get("imei");
                 String policyNo = (String) map.get("policy_no");
                 String username = (String) map.get("username");
-                String phone = (String) map.get("login_name");
+                String phone = (String) map.get("phone");
                 String idNumber = (String) map.get("id_number");
                 String birthplace = (String) map.get("birthplace");
-                String contcatPhone = (String) map.get("contcat_phone");
+                String contactPhone = (String) map.get("contact_phone");
                 String type = (String) map.get("type");
                 String vendor = (String) map.get("vendor");
                 String color = (String) map.get("color");
@@ -1285,7 +1426,7 @@ public class RegisterationServiceImpl implements RegistrationService {
                 Integer devstate = (Integer) map.get("devstate");
                 String isp = (String) map.get("isp");
                 view.setBirthPlace(birthplace);
-                view.setContactPhone(contcatPhone);
+                view.setContactPhone(contactPhone);
                 view.setCreateTime(createTime);
                 view.setElecColor(color);
                 view.setElecType(type);
@@ -1325,31 +1466,33 @@ public class RegisterationServiceImpl implements RegistrationService {
             JSONObject body = new JSONObject();
             JSONObject user = new JSONObject();
             JSONObject elec = new JSONObject();
-            user.put("name", registration.getUser().getName());
-            user.put("contactPhone", registration.getUser().getContactPhone());
-            user.put("phone", registration.getUser().getPhone());
-            user.put("home", registration.getUser().getHome());
-            user.put("idType", registration.getUser().getIdType());
-            user.put("idNumber", registration.getUser().getIdNumber());
-            user.put("idNumberPhotoUrl", registration.getUser().getIdNumberPhotoUrl());
-            user.put("idNumberPhotoBackUrl", registration.getUser().getIdNumberPhotoBackUrl());
-            user.put("systemId", registration.getUser().getSystemId());
-            user.put("createTime", TimeStampUtil.getTs(registration.getUser().getCreateTime()));
-            user.put("updateTime", TimeStampUtil.getTs(registration.getUser().getCreateTime()));
-            elec.put("plateNumber", registration.getElectrmobile().getPlateNumber());
-            elec.put("typeId", registration.getElectrmobile().getTypeId());
-            elec.put("vendorId", registration.getElectrmobile().getVendorId());
-            elec.put("purchaseTime", registration.getElectrmobile().getPurchaseTime());
-            elec.put("colorId", registration.getElectrmobile().getColorId());
-            elec.put("vin", registration.getElectrmobile().getVin());
-            elec.put("imei", registration.getElectrmobile().getImei());
-            elec.put("policyNo", registration.getElectrmobile().getPolicyNo());
-            elec.put("insuranceTime", registration.getElectrmobile().getInsuranceTime());
-            elec.put("motorPhotoUrl", registration.getElectrmobile().getMotorPhotoUrl());
-            elec.put("policyPhotoUrl", registration.getElectrmobile().getPolicyPhotoUrl());
-            elec.put("promisePhotoUrl", registration.getElectrmobile().getPromisePhotoUrl());
-            elec.put("createTime", registration.getElectrmobile().getCreateTime());
-            elec.put("updateTime", registration.getElectrmobile().getUpdateTime());
+            Tuser tuser = registration.getUser();
+            Telectrmobile telectrmobile = registration.getElectrombile();
+            user.put("name", tuser.getName());
+            user.put("contactPhone", tuser.getContactPhone());
+            user.put("phone", tuser.getPhone());
+            user.put("home", tuser.getHome());
+            user.put("idType", tuser.getIdType());
+            user.put("idNumber", tuser.getIdNumber());
+            user.put("idNumberPhotoUrl", tuser.getIdNumberPhotoUrl());
+            user.put("idNumberPhotoBackUrl", tuser.getIdNumberPhotoBackUrl());
+            user.put("systemId", tuser.getSystemId());
+            user.put("createTime", TimeStampUtil.getTs(tuser.getCreateTime()));
+            user.put("updateTime", TimeStampUtil.getTs(tuser.getCreateTime()));
+            elec.put("plateNumber", telectrmobile.getPlateNumber());
+            elec.put("typeId", telectrmobile.getTypeId());
+            elec.put("vendorId", telectrmobile.getVendorId());
+            elec.put("purchaseTime", telectrmobile.getPurchaseTime());
+            elec.put("colorId", telectrmobile.getColorId());
+            elec.put("vin", telectrmobile.getVin());
+            elec.put("imei", telectrmobile.getImei());
+            elec.put("policyNo", telectrmobile.getPolicyNo());
+            elec.put("insuranceTime", telectrmobile.getInsuranceTime());
+            elec.put("motorPhotoUrl", telectrmobile.getMotorPhotoUrl());
+            elec.put("policyPhotoUrl", telectrmobile.getPolicyPhotoUrl());
+            elec.put("promisePhotoUrl", telectrmobile.getPromisePhotoUrl());
+            elec.put("createTime", telectrmobile.getCreateTime());
+            elec.put("updateTime", telectrmobile.getUpdateTime());
             body.put("registrationId", registration.getRegisterId());
             TinstallSite site = installSiteService.findById(registration.getInstallSiteId());
             if(site != null){
@@ -1369,37 +1512,39 @@ public class RegisterationServiceImpl implements RegistrationService {
     /**
      * 通知第三方平台修改备案
      */
-    private void broadcastupdateRegister3TdPlatform(Tregistration registration) {
+    private void broadcastUpdateRegister3TdPlatform(Tregistration registration) {
         ResponseEntity<JSONObject> response = null;
         try {
             JSONObject body = new JSONObject();
             JSONObject user = new JSONObject();
             JSONObject elec = new JSONObject();
+            Tuser tuser = registration.getUser();
+            Telectrmobile telectrmobile = registration.getElectrombile();
             user.put("name", registration.getUser().getName());
-            user.put("contactPhone", registration.getUser().getContactPhone());
-            user.put("phone", registration.getUser().getPhone());
-            user.put("home", registration.getUser().getHome());
-            user.put("idType", registration.getUser().getIdType());
-            user.put("idNumber", registration.getUser().getIdNumber());
-            user.put("idNumberPhotoUrl", registration.getUser().getIdNumberPhotoUrl());
-            user.put("idNumberPhotoBackUrl", registration.getUser().getIdNumberPhotoBackUrl());
-            user.put("systemId", registration.getUser().getSystemId());
-            user.put("createTime", TimeStampUtil.getTs(registration.getUser().getCreateTime()));
+            user.put("contactPhone", tuser.getContactPhone());
+            user.put("phone", tuser.getPhone());
+            user.put("home", tuser.getHome());
+            user.put("idType", tuser.getIdType());
+            user.put("idNumber", tuser.getIdNumber());
+            user.put("idNumberPhotoUrl", tuser.getIdNumberPhotoUrl());
+            user.put("idNumberPhotoBackUrl", tuser.getIdNumberPhotoBackUrl());
+            user.put("systemId", tuser.getSystemId());
+            user.put("createTime", TimeStampUtil.getTs(tuser.getCreateTime()));
             user.put("updateTime", new Date());
-            elec.put("plateNumber", registration.getElectrmobile().getPlateNumber());
-            elec.put("typeId", registration.getElectrmobile().getTypeId());
-            elec.put("vendorId", registration.getElectrmobile().getVendorId());
-            elec.put("purchaseTime", registration.getElectrmobile().getPurchaseTime());
-            elec.put("colorId", registration.getElectrmobile().getColorId());
-            elec.put("vin", registration.getElectrmobile().getVin());
-            elec.put("imei", registration.getElectrmobile().getImei());
-            elec.put("policyNo", registration.getElectrmobile().getPolicyNo());
-            elec.put("insuranceTime", registration.getElectrmobile().getInsuranceTime());
-            elec.put("motorPhotoUrl", registration.getElectrmobile().getMotorPhotoUrl());
-            elec.put("policyPhotoUrl", registration.getElectrmobile().getPolicyPhotoUrl());
-            elec.put("promisePhotoUrl", registration.getElectrmobile().getPromisePhotoUrl());
-            elec.put("createTime", registration.getElectrmobile().getCreateTime());
-            elec.put("updateTime", registration.getElectrmobile().getUpdateTime());
+            elec.put("plateNumber", telectrmobile.getPlateNumber());
+            elec.put("typeId", telectrmobile.getTypeId());
+            elec.put("vendorId", telectrmobile.getVendorId());
+            elec.put("purchaseTime", telectrmobile.getPurchaseTime());
+            elec.put("colorId", telectrmobile.getColorId());
+            elec.put("vin", telectrmobile.getVin());
+            elec.put("imei", telectrmobile.getImei());
+            elec.put("policyNo", telectrmobile.getPolicyNo());
+            elec.put("insuranceTime", telectrmobile.getInsuranceTime());
+            elec.put("motorPhotoUrl", telectrmobile.getMotorPhotoUrl());
+            elec.put("policyPhotoUrl", telectrmobile.getPolicyPhotoUrl());
+            elec.put("promisePhotoUrl", telectrmobile.getPromisePhotoUrl());
+            elec.put("createTime", telectrmobile.getCreateTime());
+            elec.put("updateTime", telectrmobile.getUpdateTime());
             body.put("registrationId", registration.getRegisterId());
             body.put("user", user);
             body.put("electrombile", elec);
@@ -1455,7 +1600,7 @@ public class RegisterationServiceImpl implements RegistrationService {
         titles.add("车牌号");
         titles.add("车主姓名");
         titles.add("户籍地址");
-        titles.add("联系方式");
+//        titles.add("联系方式");
         titles.add("身份证号");
         titles.add("注册时间");
         titles.add("登录账号");

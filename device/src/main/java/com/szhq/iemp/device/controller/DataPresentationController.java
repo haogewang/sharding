@@ -66,7 +66,7 @@ public class DataPresentationController {
                                       @RequestBody(required = false) DeviceQuery query) {
         log.info("historyInstalledStatistics query:" + JSONObject.toJSONString(query));
         List<DeviceCount> counts = deviceInventoryService.countHistoryInstalledByOffset(offset, query);
-        String date = TimeStampUtil.formatDate(new Date(), null);
+        String date = TimeStampUtil.formatDate(new Date(), "yyyy-MM-dd");
         JSONObject json = new JSONObject();
         json.put("today", date);
         json.put("counts", counts);

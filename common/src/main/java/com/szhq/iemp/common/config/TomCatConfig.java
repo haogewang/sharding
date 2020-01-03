@@ -23,11 +23,11 @@ public class TomCatConfig {
                     Http11NioProtocol protocol = (Http11NioProtocol) connector.getProtocolHandler();
                     protocol.setDisableUploadTimeout(false);
                     //最大并发数，默认设置200
-                    protocol.setMaxThreads(500);
+                    protocol.setMaxThreads(200);
                     //Tomcat 初始化时创建的线程数
                     protocol.setMinSpareThreads(25);
                     //指定当所有可以使用的处理请求的线程数都被使用时，可以放到处理队列中的请求数，超过这个数的请求将不予处理，默认设置100
-                    protocol.setAcceptCount(200);
+                    protocol.setAcceptCount(100);
                     protocol.setConnectionTimeout(30000);
                     //maxKeepAliveRequests="1"表示每个连接只响应一次就关闭，这样就不会等待timeout了,
                     // 避免tomcat产生大量的TIME_WAIT连接，从而从一定程度上避免tomcat假死。

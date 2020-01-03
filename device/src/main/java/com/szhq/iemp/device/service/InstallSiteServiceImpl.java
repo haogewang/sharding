@@ -1,19 +1,14 @@
 package com.szhq.iemp.device.service;
 
 import com.szhq.iemp.common.constant.CommonConstant;
-import com.szhq.iemp.common.constant.enums.exception.DeviceExceptionEnum;
 import com.szhq.iemp.common.constant.enums.exception.SiteExceptionEnum;
 import com.szhq.iemp.common.exception.NbiotException;
 import com.szhq.iemp.common.util.ExportExcelUtils;
 import com.szhq.iemp.common.util.PropertyUtil;
 import com.szhq.iemp.common.util.SortUtil;
-import com.szhq.iemp.common.util.TimeStampUtil;
 import com.szhq.iemp.common.vo.ExportExcelData;
 import com.szhq.iemp.common.vo.MyPage;
-import com.szhq.iemp.device.api.model.TaddressRegion;
-import com.szhq.iemp.device.api.model.TdeviceInventory;
-import com.szhq.iemp.device.api.model.TinstallSite;
-import com.szhq.iemp.device.api.model.TpolicePrecinct;
+import com.szhq.iemp.device.api.model.*;
 import com.szhq.iemp.device.api.service.*;
 import com.szhq.iemp.device.api.vo.InstallSiteAndWorker;
 import com.szhq.iemp.device.api.vo.InstallSiteDeviceCount;
@@ -68,6 +63,8 @@ public class InstallSiteServiceImpl implements InstallSiteService {
     private AddressRegionService regionService;
     @Autowired
     private ElectrmobileService electrmobileService;
+    @Autowired
+    private UserService userService;
 
     @Autowired
     private RedisUtil redisUtil;
@@ -83,6 +80,15 @@ public class InstallSiteServiceImpl implements InstallSiteService {
             public Predicate toPredicate(Root<TinstallSite> root, CriteriaQuery<?> query, CriteriaBuilder criteriaBuilder) {
                 List<Predicate> list = new ArrayList<Predicate>();
                 if (siteQuery != null) {
+                    if (siteQuery.getProvinceId() != null) {
+                        list.add(criteriaBuilder.equal(root.get("provinceId").as(Integer.class), siteQuery.getProvinceId()));
+                    }
+                    if (siteQuery.getCityId() != null) {
+                        list.add(criteriaBuilder.equal(root.get("cityId").as(Integer.class), siteQuery.getCityId()));
+                    }
+                    if (siteQuery.getAddressRegionId() != null) {
+                        list.add(criteriaBuilder.equal(root.get("regionId").as(Integer.class), siteQuery.getAddressRegionId()));
+                    }
                     if (siteQuery.getRegionId() != null) {
                         list.add(criteriaBuilder.equal(root.get("regionId").as(Integer.class), siteQuery.getRegionId()));
                     }
@@ -155,6 +161,10 @@ public class InstallSiteServiceImpl implements InstallSiteService {
             }else{
                 log.error("police is not found.siteName:" + installSite.getName());
             }
+        }
+        if(entity.getPoliceId() == null){
+            installSite.setPoliceName(null);
+            installSite.setPoliceId(null);
         }
         if (entity.getRegionId() != null && !Objects.equals(entity.getRegionId(), installSite.getRegionId())) {
             TaddressRegion region = regionService.findById(entity.getRegionId());
@@ -321,21 +331,27 @@ public class InstallSiteServiceImpl implements InstallSiteService {
         List<InstallSiteDeviceCount> counts = new ArrayList<InstallSiteDeviceCount>();
         List<Map<String, Object>> lists = new ArrayList<>();
         if (query != null && query.getStartTime() != null && query.getEndTime() != null && query.getOperatorIdList() == null) {
-//			log.info("startTime:{},endTime:{}",query.getStartTime(), query.getEndTime());
             lists = installSiteRepository.countByDate(query.getStartTime(), query.getEndTime());
-        } else if (query != null && query.getStartTime() != null && query.getEndTime() != null && query.getOperatorIdList() != null) {
+        }
+        else if (query != null && query.getStartTime() != null && query.getEndTime() != null && query.getOperatorIdList() != null) {
             lists = installSiteRepository.countByDate(query.getStartTime(), query.getEndTime(), query.getOperatorIdList());
-        } else if (query != null && query.getStartTime() != null && query.getEndTime() != null && StringUtils.isNotEmpty(query.getInstallSiteName()) && query.getOperatorIdList() == null) {
+        }
+        else if (query != null && query.getStartTime() != null && query.getEndTime() != null && StringUtils.isNotEmpty(query.getInstallSiteName()) && query.getOperatorIdList() == null) {
             lists = installSiteRepository.countByCondition(query.getStartTime(), query.getEndTime(), query.getInstallSiteName());
-        } else if (query != null && query.getStartTime() != null && query.getEndTime() != null && StringUtils.isNotEmpty(query.getInstallSiteName()) && query.getOperatorIdList() != null) {
+        }
+        else if (query != null && query.getStartTime() != null && query.getEndTime() != null && StringUtils.isNotEmpty(query.getInstallSiteName()) && query.getOperatorIdList() != null) {
             lists = installSiteRepository.countByCondition(query.getStartTime(), query.getEndTime(), query.getInstallSiteName(), query.getOperatorIdList());
-        } else if (query != null && StringUtils.isNotEmpty(query.getInstallSiteName()) && query.getOperatorIdList() == null) {
+        }
+        else if (query != null && StringUtils.isNotEmpty(query.getInstallSiteName()) && query.getOperatorIdList() == null) {
             lists = installSiteRepository.countByInstallSiteName(query.getInstallSiteName());
-        } else if (query != null && StringUtils.isNotEmpty(query.getInstallSiteName()) && query.getOperatorIdList() != null) {
+        }
+        else if (query != null && StringUtils.isNotEmpty(query.getInstallSiteName()) && query.getOperatorIdList() != null) {
             lists = installSiteRepository.countByInstallSiteName(query.getInstallSiteName(), query.getOperatorIdList());
-        } else if (query != null && query.getOperatorIdList() != null) {
+        }
+        else if (query != null && query.getOperatorIdList() != null) {
             lists = installSiteRepository.countAll(query.getOperatorIdList());
-        } else {
+        }
+        else {
             lists = installSiteRepository.countAll();
         }
         if (lists != null && lists.size() > 0) {
@@ -379,7 +395,8 @@ public class InstallSiteServiceImpl implements InstallSiteService {
         List<Map<String, Object>> lists = null;
         if (query != null && query.getOperatorIdList() != null) {
             lists = installSiteRepository.installSiteOrder(offset, query.getOperatorIdList());
-        } else {
+        }
+        else {
             lists = installSiteRepository.installSiteOrder(offset);
         }
         List<InstallSiteDeviceCount> counts = new ArrayList<>();
@@ -401,30 +418,76 @@ public class InstallSiteServiceImpl implements InstallSiteService {
     }
 
     @Override
-    public List<InstallSiteAndWorker> getSiteInstalledCount(List<Integer> operatorIds, Integer offset) {
+    public List<InstallSiteAndWorker> getInstalledCountByUserId(String userId, Integer siteId, Integer offset) {
         List<InstallSiteAndWorker> result = new ArrayList<>();
         List<Map<String, Object>> lists = null;
-        if(operatorIds != null && operatorIds.get(0) != 0){
-            lists = installSiteRepository.getSiteInstalledCount(offset);
-        }
-        else if(operatorIds != null){
-            lists = installSiteRepository.getSiteInstalledCount(operatorIds, offset);
-        }
+        lists = installSiteRepository.getInstalledCountByUserId(userId, offset, siteId);
         if(lists != null && !lists.isEmpty()){
             for(Map<String, Object> map : lists){
                 InstallSiteAndWorker installSiteAndWorker = new InstallSiteAndWorker();
-                Integer siteId = Integer.valueOf(String.valueOf(map.get("install_site_id")));
-                String siteName = String.valueOf(map.get("name"));
-                String userId = String.valueOf(map.get("id"));
-                String userName = String.valueOf(map.get("username"));
-                Integer count = Integer.valueOf(String.valueOf(map.get("installedCount")));
+                String userName = String.valueOf(map.get("name"));
+                Integer count = Integer.valueOf(String.valueOf(map.get("counts")));
+                Integer onlineCount = Integer.valueOf(String.valueOf(map.get("onlinecount")));
                 installSiteAndWorker.setWorkerName(userName);
-                installSiteAndWorker.setInstallSiteName(siteName);
-                installSiteAndWorker.setInstallSiteId(siteId);
+                String date = String.valueOf(map.get("create_time"));
+                installSiteAndWorker.setUnNormalCount(count - onlineCount);
+                installSiteAndWorker.setWorkerName(userName);
                 installSiteAndWorker.setTotalCount(count);
                 installSiteAndWorker.setWorkerId(userId);
+                installSiteAndWorker.setDate(date);
                 result.add(installSiteAndWorker);
             }
+        }
+        return result;
+    }
+
+    @Override
+    public List<InstallSiteAndWorker> getInstalledWorkerCountBySiteId(Date startTime, Date endTime, Integer siteId) {
+        List<InstallSiteAndWorker> result = new ArrayList<>();
+        List<Tuser> users = userService.findBySiteId(siteId);
+        if(users == null){
+            log.error("user is not found.siteId:" + siteId);
+            return result;
+        }
+        List<String> userIds = users.stream().map(Tuser::getId).collect(Collectors.toList());
+        if(userIds.isEmpty()){
+            log.error("user is not found.siteId:" + siteId);
+            return result;
+        }
+        List<Map<String, Object>> lists = installSiteRepository.getInstallWorkerCount(startTime, endTime, userIds);
+        setSiteWorkerValue(siteId, result, lists);
+        return result.stream().sorted(Comparator.comparing(InstallSiteAndWorker::getTotalCount)).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<InstallSiteAndWorker> getInstalledWorkerCountBySiteId(Integer siteId) {
+        List<InstallSiteAndWorker> result = new ArrayList<>();
+        List<Tuser> users = userService.findBySiteId(siteId);
+        if(users == null){
+            log.error("user is not found .siteId:" + siteId);
+            return result;
+        }
+        List<String> userIds = users.stream().map(Tuser::getId).collect(Collectors.toList());
+        if(userIds.isEmpty()){
+            log.error("user is not found. siteId:" + siteId);
+            return result;
+        }
+        List<Map<String, Object>> lists = installSiteRepository.getInstallWorkerCount(userIds);
+        setSiteWorkerValue(siteId, result, lists);
+        return result;
+    }
+
+
+    @Override
+    public List<InstallSiteAndWorker> installedWorkerCountStatisticBySiteId(Date startTime, Date endTime, Integer installSiteId) {
+        List<InstallSiteAndWorker> result = new ArrayList<>();
+        if(startTime == null || endTime == null){
+            List<Map<String, Object>> lists = installSiteRepository.installedWorkerCountStatisticBySiteId(installSiteId);
+            setSiteWorkerValue(installSiteId, result, lists);
+        }
+        else {
+            List<Map<String, Object>> lists = installSiteRepository.installedWorkerCountStatisticBySiteId(startTime, endTime, installSiteId);
+            setSiteWorkerValue(installSiteId, result, lists);
         }
         return result;
     }
@@ -445,6 +508,48 @@ public class InstallSiteServiceImpl implements InstallSiteService {
             ExportExcelData data = addExcelData(result);
             try {
                 String excelName = "安装点设备列表.xls";
+                ExportExcelUtils.exportExcel(response, excelName, data);
+            } catch (Exception e) {
+                log.error("e", e);
+                throw new NbiotException(500, "");
+            }
+        }
+    }
+
+    @Override
+    public void exportWorkerInstalledInfo(InstallSiteQuery query, HttpServletResponse response) {
+        List<Map<String, Object>> lists = null;
+        List<InstallSiteAndWorker> result = new ArrayList<>();
+        if(query.getInstallSiteId() == null){
+            throw new NbiotException(400, "安装点Id不能为空");
+        }
+        TinstallSite site = findById(query.getInstallSiteId());
+        if(query.getStartTime() == null && query.getEndTime() == null){
+            lists = installSiteRepository.getEveryDayWorkerInstalledCount(query.getInstallSiteId());
+        }else {
+            lists = installSiteRepository.getEveryDayWorkerInstalledCount(query.getInstallSiteId(), query.getStartTime(), query.getEndTime());
+        }
+        if(lists != null && !lists.isEmpty()){
+            for(Map<String, Object> map : lists){
+                InstallSiteAndWorker installSiteAndWorker = new InstallSiteAndWorker();
+                String userName = String.valueOf(map.get("name"));
+                String createTime = (String)map.get("create_time");
+                Integer count = Integer.valueOf(String.valueOf(map.get("counts")));
+                String loginName = String.valueOf(map.get("login_name"));
+                installSiteAndWorker.setWorkerLoginName(loginName);
+                installSiteAndWorker.setWorkerName(userName);
+                installSiteAndWorker.setDate(createTime);
+                installSiteAndWorker.setTotalCount(count);
+                if(site != null){
+                    installSiteAndWorker.setInstallSiteName(site.getName());
+                }
+                result.add(installSiteAndWorker);
+            }
+//            log.info("result:{}", JSONObject.toJSONString(result));
+            ExportExcelData data = addInstalledStasticExcelData(result);
+//            log.info("data:" + JSONObject.toJSONString(data));
+            try {
+                String excelName = "安装点安装人员安装统计.xls";
                 ExportExcelUtils.exportExcel(response, excelName, data);
             } catch (Exception e) {
                 log.error("e", e);
@@ -486,6 +591,26 @@ public class InstallSiteServiceImpl implements InstallSiteService {
         return count;
     }
 
+    private void setSiteWorkerValue(Integer siteId, List<InstallSiteAndWorker> result, List<Map<String, Object>> lists) {
+        if (lists != null && !lists.isEmpty()) {
+            for (Map<String, Object> map : lists) {
+                InstallSiteAndWorker installSiteAndWorker = new InstallSiteAndWorker();
+                String userId = String.valueOf(map.get("create_by"));
+                String userName = String.valueOf(map.get("name"));
+                Integer count = Integer.valueOf(String.valueOf(map.get("counts")));
+                String loginName = String.valueOf(map.get("login_name"));
+                String contactPhone = String.valueOf(map.get("contact_phone"));
+                installSiteAndWorker.setWorkerName(userName);
+                installSiteAndWorker.setInstallSiteId(siteId);
+                installSiteAndWorker.setTotalCount(count);
+                installSiteAndWorker.setWorkerId(userId);
+                installSiteAndWorker.setWorkerLoginName(loginName);
+                installSiteAndWorker.setWorkerPhone(contactPhone);
+                result.add(installSiteAndWorker);
+            }
+        }
+    }
+
     /**
      * 验证安装点下是否有设备
      */
@@ -495,6 +620,43 @@ public class InstallSiteServiceImpl implements InstallSiteService {
             throw new NbiotException(SiteExceptionEnum.E_0003.getCode(), SiteExceptionEnum.E_0003.getMessage());
         }
     }
+
+    private ExportExcelData addInstalledStasticExcelData(List<InstallSiteAndWorker> result) {
+        ExportExcelData data = new ExportExcelData();
+        data.setName("安装统计列表");
+        addInstalledStasticExcelTitle(data);
+        List<List<String>> rows = new LinkedList<>();
+        if (result != null && result.size() > 0) {
+            addInstalledStasticExcelCellData(result, rows);
+            log.info("export installedStastic size is:" + result.size());
+            data.setRows(rows);
+        }
+        return data;
+    }
+
+
+    private void addInstalledStasticExcelTitle(ExportExcelData data) {
+        List<String> titles = new ArrayList<>();
+        titles.add("安装点");
+        titles.add("安装人员用户名");
+        titles.add("安装人员登录名");
+        titles.add("安装时间");
+        titles.add("安装数量");
+        data.setTitles(titles);
+    }
+
+    private void addInstalledStasticExcelCellData(List<InstallSiteAndWorker> result, List<List<String>> rows) {
+        for (InstallSiteAndWorker view : result) {
+            List<String> row = new LinkedList<>();
+            row.add(view.getInstallSiteName());
+            row.add(view.getWorkerName());
+            row.add(view.getWorkerLoginName());
+            row.add(view.getDate());
+            row.add(view.getTotalCount() + "");
+            rows.add(row);
+        }
+    }
+
 
     private ExportExcelData addExcelData(List<TdeviceInventory> result) {
         ExportExcelData data = new ExportExcelData();
@@ -532,19 +694,24 @@ public class InstallSiteServiceImpl implements InstallSiteService {
             row.add(view.getIccid());
             row.add(view.getIsp());
             row.add(view.getRegionName());
-            switch (view.getDevstate()){
-                case 0:
-                    row.add("未安装");
-                case 1:
-                    row.add("已安装");
-                case 2:
-                    row.add("更换");
+            if(Objects.equals(1, view.getDevstate())){
+                row.add("已安装");
+            }else if(Objects.equals(2, view.getDevstate())){
+                row.add("更换");
+            }else{
+                row.add("未安装");
             }
             if(view.getRegisterVo() != null){
                 row.add(view.getRegisterVo().getInstallWorkerName());
                 if(view.getRegisterVo().getDate() != null){
                     row.add(view.getRegisterVo().getDate().toString());
+                }else {
+                    row.add("");
                 }
+            }
+            else {
+                row.add("");
+                row.add("");
             }
             rows.add(row);
         }

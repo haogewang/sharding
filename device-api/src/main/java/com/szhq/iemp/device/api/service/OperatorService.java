@@ -54,17 +54,23 @@ public interface OperatorService {
      * 递归找到所有子类Id
      */
     List<Integer> findAllChildIds(Integer parentId);
+
+    /**
+     * 通过用户Id找到所有的运营公司Id
+     */
+    List<Integer> findAllOperatorIdsByUserId(String userId);
     /**
      * 删除redis缓存
      */
     Integer deleteRedisData(Integer parentId);
 
     List<Toperator> findByParent(Integer id);
-
     /**
      * 找到需要入库的运营公司
      */
     List<Toperator> findNeedPutStorageOperators();
 
     List<Toperator> findByParentIdAndStoreIsActive(Integer id, Boolean isActive);
+
+
 }

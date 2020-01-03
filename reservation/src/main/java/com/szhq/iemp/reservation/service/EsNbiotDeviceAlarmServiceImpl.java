@@ -1,14 +1,8 @@
 package com.szhq.iemp.reservation.service;
 
 import com.szhq.iemp.common.vo.MyPage;
-import com.szhq.iemp.reservation.api.model.EsNbiotDeviceAlarm;
-import com.szhq.iemp.reservation.api.model.Telectrmobile;
-import com.szhq.iemp.reservation.api.model.TelectrombileUser;
-import com.szhq.iemp.reservation.api.model.Tuser;
-import com.szhq.iemp.reservation.api.service.ElecmobileUserService;
-import com.szhq.iemp.reservation.api.service.ElectrmobileService;
-import com.szhq.iemp.reservation.api.service.EsNbiotDeviceAlarmService;
-import com.szhq.iemp.reservation.api.service.UserService;
+import com.szhq.iemp.reservation.api.model.*;
+import com.szhq.iemp.reservation.api.service.*;
 import com.szhq.iemp.reservation.api.vo.query.AlarmQuery;
 import com.szhq.iemp.reservation.repository.EsNbiotDeviceAlarmRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -44,6 +38,7 @@ import org.springframework.stereotype.Service;
 import javax.annotation.Resource;
 import javax.transaction.Transactional;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -57,7 +52,7 @@ public class EsNbiotDeviceAlarmServiceImpl implements EsNbiotDeviceAlarmService 
     @Autowired
     private UserService userService;
     @Autowired
-    private ElecmobileUserService elecmobileUserService;
+    private RegistrationService registrationService;
     @Autowired
     @Qualifier("transportClient")
     private TransportClient transportClient;
@@ -80,20 +75,25 @@ public class EsNbiotDeviceAlarmServiceImpl implements EsNbiotDeviceAlarmService 
         if (alarmQuery != null && alarmQuery.getOperatorIdList() != null) {
             boolQueryBuilder.must(QueryBuilders.termsQuery("operator", alarmQuery.getOperatorIdList()));
         }
-        boolQueryBuilder.mustNot(QueryBuilders.matchPhraseQuery("type", 6));
-        boolQueryBuilder.mustNot(QueryBuilders.matchPhraseQuery("type", 7));
+        if (alarmQuery != null && alarmQuery.getImeiList() != null) {
+            boolQueryBuilder.must(QueryBuilders.termsQuery("imei", alarmQuery.getImeiList()));
+        }
+//        boolQueryBuilder.mustNot(QueryBuilders.matchPhraseQuery("type", 6));
+//        boolQueryBuilder.mustNot(QueryBuilders.matchPhraseQuery("type", 7));
         if (alarmQuery != null && alarmQuery.getStartTimestamp() != null && alarmQuery.getEndTimestamp() != null) {
-            rangeQueryBuilder.gte(alarmQuery.getStartTimestamp());
             rangeQueryBuilder.lte(alarmQuery.getEndTimestamp());
+            rangeQueryBuilder.gte(alarmQuery.getStartTimestamp());
             boolQueryBuilder.must(rangeQueryBuilder);
-        } else if (alarmQuery != null && StringUtils.isNotEmpty(alarmQuery.getPlateNo())) {
+        }
+        if (alarmQuery != null && StringUtils.isNotEmpty(alarmQuery.getPlateNo())) {
             Telectrmobile electrombile = electrombileService.findByPlateNumber(alarmQuery.getPlateNo());
             if (electrombile == null) {
                 log.error("plateNo: " + alarmQuery.getPlateNo() + " is not exist!");
                 return null;
             }
             boolQueryBuilder.must(QueryBuilders.matchPhraseQuery("imei", electrombile.getImei()));
-        } else if (alarmQuery != null && StringUtils.isNotEmpty(alarmQuery.getPhone())) {
+        }
+        if (alarmQuery != null && StringUtils.isNotEmpty(alarmQuery.getPhone())) {
             Tuser user = userService.findByPhone(alarmQuery.getPhone());
             if (user == null) {
                 log.error("phone: " + alarmQuery.getPhone() + " is not exist!");
@@ -111,23 +111,21 @@ public class EsNbiotDeviceAlarmServiceImpl implements EsNbiotDeviceAlarmService 
                 imeis.add(imei);
             }
             boolQueryBuilder.must(QueryBuilders.termsQuery("imei", imeis));
-        } else if (alarmQuery != null && StringUtils.isNotEmpty(alarmQuery.getOwnerName())) {
-            List<Tuser> users = userService.findByOwnerName(alarmQuery.getOwnerName());
-            if (users == null) {
-                return null;
+        }
+        if (alarmQuery != null && StringUtils.isNotEmpty(alarmQuery.getOwnerName())) {
+            List<String> imeis = registrationService.findByUserNameLikeAndImeiIsNotNUll(alarmQuery.getOwnerName());
+            if(imeis != null && !imeis.isEmpty()){
+                boolQueryBuilder.must(QueryBuilders.termsQuery("imei", imeis));
             }
-            for (Tuser user : users) {
-                List<TelectrombileUser> elecUsers = elecmobileUserService.findByUserId(user.getId());
-                if (elecUsers == null) {
-                    continue;
-                }
-                Telectrmobile elec = electrombileService.findByElecId(elecUsers.get(0).getElectrombileId());
-                if (elec == null) {
-                    continue;
-                }
-//				log.info("elec:" + JSONObject.toJSONString(elec));
-                boolQueryBuilder.should(QueryBuilders.matchPhraseQuery("imei", elec.getImei()));
+        }
+        if(alarmQuery != null && StringUtils.isNotEmpty(alarmQuery.getOwnerId())){
+            List<String> imeis = registrationService.findByUserIdAndImeiIsNotNUll(alarmQuery.getOwnerId());
+            if(imeis != null && !imeis.isEmpty()){
+                boolQueryBuilder.must(QueryBuilders.termsQuery("imei", imeis));
             }
+        }
+        if(alarmQuery != null && alarmQuery.getEmergencyAlert() != null){
+            boolQueryBuilder.must(QueryBuilders.matchPhraseQuery("emergencyAlert", alarmQuery.getEmergencyAlert()));
         }
         SearchQuery searchQuery = new NativeSearchQuery(boolQueryBuilder);
         searchQuery.setPageable(pageable);
@@ -213,17 +211,18 @@ public class EsNbiotDeviceAlarmServiceImpl implements EsNbiotDeviceAlarmService 
 
 
     @Override
-    @Async("asyncPoolTaskExecutor")
     public Long deleteByImei(String imei) {
         long count = 0;
+        Pageable pageable = PageRequest.of(0, 3000);
         QueryBuilder queryBuilder = new MatchQueryBuilder("imei", imei);
-        Iterable<EsNbiotDeviceAlarm> catIterable = esNbiotDeviceAlarmRepository.search(queryBuilder);
-        if (catIterable != null) {
-            esNbiotDeviceAlarmRepository.deleteAll(catIterable);
-            if(catIterable.spliterator() != null){
-                count = catIterable.spliterator().getExactSizeIfKnown();
+        while(true){
+            Page<EsNbiotDeviceAlarm> catIterable = esNbiotDeviceAlarmRepository.search(queryBuilder, pageable);
+            if (catIterable != null && catIterable.getTotalElements() > 0) {
+                esNbiotDeviceAlarmRepository.deleteAll(catIterable);
+                count += catIterable.getTotalElements();
+            }else{
+                break;
             }
-
         }
         return count;
     }

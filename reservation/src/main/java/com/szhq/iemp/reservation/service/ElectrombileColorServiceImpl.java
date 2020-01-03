@@ -1,6 +1,7 @@
 package com.szhq.iemp.reservation.service;
 
 import com.szhq.iemp.reservation.api.model.TelectrombileColor;
+import com.szhq.iemp.reservation.api.model.TelectrombileType;
 import com.szhq.iemp.reservation.api.service.ElectrmobileColorService;
 import com.szhq.iemp.reservation.repository.ElectrombileColorRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -8,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -20,7 +22,15 @@ public class ElectrombileColorServiceImpl implements ElectrmobileColorService {
 
     @Override
     public List<TelectrombileColor> findAll() {
-        return electrombileColorRepository.findAll();
+        List<TelectrombileColor> result = new ArrayList<>();
+        List<TelectrombileColor> list = electrombileColorRepository.findAll();
+        if(!list.isEmpty()){
+            for(TelectrombileColor color : list){
+                color.setElectrombileColorId(color.getColorId());
+                result.add(color);
+            }
+        }
+        return result;
     }
 
     @Override

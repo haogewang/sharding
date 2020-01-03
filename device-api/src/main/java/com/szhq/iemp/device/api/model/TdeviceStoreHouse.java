@@ -59,6 +59,9 @@ public class TdeviceStoreHouse extends BaseEntity {
     @NotFound(action = NotFoundAction.IGNORE)
     private TaddressRegion region;
 
+    //保险须知URL
+    private String policyInstructionUrl;
+
     @Transient
     private String operatorName;
 

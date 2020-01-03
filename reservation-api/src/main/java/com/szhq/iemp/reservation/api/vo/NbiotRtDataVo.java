@@ -27,5 +27,7 @@ public class NbiotRtDataVo implements Serializable {
     private String deviceMode;
     private Date createTime;
     private Long unReadAlarmCount;
+    private Integer speed;
+    private Integer alt;
 
 }

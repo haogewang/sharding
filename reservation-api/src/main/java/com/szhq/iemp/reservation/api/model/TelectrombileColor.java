@@ -20,4 +20,7 @@ public class TelectrombileColor extends BaseEntity {
     private Integer colorId;
 
     private String name;
+
+    @Transient
+    private Integer electrombileColorId;
 }

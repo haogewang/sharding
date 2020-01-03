@@ -7,6 +7,7 @@ import com.szhq.iemp.device.api.vo.InstallSiteDeviceCount;
 import com.szhq.iemp.device.api.vo.query.InstallSiteQuery;
 
 import javax.servlet.http.HttpServletResponse;
+import java.util.Date;
 import java.util.List;
 
 public interface InstallSiteService {
@@ -111,10 +112,21 @@ public interface InstallSiteService {
      */
     Long countByQuery(InstallSiteQuery query);
 
-    List<InstallSiteAndWorker> getSiteInstalledCount(List<Integer> operatorIds, Integer offset);
+    List<InstallSiteAndWorker> getInstalledCountByUserId(String userId, Integer siteId, Integer offset);
 
+    List<InstallSiteAndWorker> getInstalledWorkerCountBySiteId(Date startTime, Date endTime, Integer siteId);
+
+    List<InstallSiteAndWorker> getInstalledWorkerCountBySiteId(Integer siteId);
     /**
      *安装点列表导出
      */
     void export(Integer siteId, HttpServletResponse response);
+    /**
+     * 安装统计导出
+     */
+    void exportWorkerInstalledInfo(InstallSiteQuery query, HttpServletResponse response);
+
+    List<InstallSiteAndWorker> installedWorkerCountStatisticBySiteId(Date startTime, Date endTime, Integer installSiteId);
+
+
 }

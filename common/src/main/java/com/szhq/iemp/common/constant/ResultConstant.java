@@ -63,8 +63,12 @@ public enum ResultConstant {
         Locale locale = Locale.getDefault();
         if (StringUtils.isNotEmpty(lang)){
             String[] split = lang.split("_");
-            //接收的第一个参数为：语言代码，国家代码
-            locale=new Locale(split[0], split[1]);
+            if(split.length < 2){
+                locale=new Locale("ZH", "CN");
+            }else{
+                //接收的第一个参数为：语言代码，国家代码
+                locale=new Locale(split[0], split[1]);
+            }
         }
 //        log.info("lang:{} local:{}",lang, locale);
         return messageSource.getMessage(String.valueOf(code),null, message, locale);

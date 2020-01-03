@@ -35,24 +35,24 @@ import java.util.Map;
  * @date 2019/11/14
  */
 @Component
-@Aspect
+//@Aspect
 @Slf4j
 public class CheckInputParameterAspect {
 
     /**
      * 定义切入点:拦截controller层指定方法
      */
-    @Pointcut("execution(public * com.szhq.iemp.reservation.controller.NoTrackerElecController.addRegister(..))")
-    public void addRegister() {
-    }
-    @Pointcut("execution(public * com.szhq.iemp.reservation.controller.RegisterationController.createRegistration(..))")
-    public void createRegistration() {
-    }
+//    @Pointcut("execution(public * com.szhq.iemp.reservation.controller.NoTrackerElecController.addRegister(..))")
+//    public void addRegister() {
+//    }
+//    @Pointcut("execution(public * com.szhq.iemp.reservation.controller.RegisterationController.createRegistration(..))")
+//    public void createRegistration() {
+//    }
 
     /**
      * 定义环绕通知
      */
-    @Around("addRegister() || createRegistration()")
+//    @Around("addRegister() || createRegistration()")
     public Object doAround(ProceedingJoinPoint joinPoint) throws Throwable {
         ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         if(attributes == null){
@@ -78,12 +78,19 @@ public class CheckInputParameterAspect {
         //获取被切参数名称及参数值
         Map<String, Object> nameAndArgsMap = getFieldsName(this.getClass(), clazzName, methodName, args);
         log.info("当前调用接口-[" + request.getRequestURI() + "]");
-        if(request.getRequestURI().endsWith(CommonConstant.NOTRACKER_ADD_REGISTER)){
-            NotrackerRegister data = (NotrackerRegister)nameAndArgsMap.get("data");
-            log.info("user:" + data.getUser());
-            valid(data.getUser());
+        if(request.getRequestURI().endsWith(CommonConstant.NOTRACKER_ADD_REGISTER) || request.getRequestURI().endsWith(CommonConstant.NOTRACKER_ADD_REGISTER_NOIMEI)){
+            for (Map.Entry<String, Object> entry : nameAndArgsMap.entrySet()) {
+                if(entry.getValue() instanceof NotrackerRegister){
+//                    NotrackerRegister data = (NotrackerRegister)nameAndArgsMap.get("data");
+                    NotrackerRegister data = (NotrackerRegister)entry.getValue();
+                    log.info("user:" + data.getUser());
+                    valid(data.getUser());
+                    break;
+                }
+            }
+
         }
-        if(request.getRequestURI().endsWith(CommonConstant.REGISTER_URL)){
+        if(request.getRequestURI().endsWith(CommonConstant.REGISTER_URL) || request.getRequestURI().endsWith(CommonConstant.REGISTER_ADD_URL)){
             Tregistration data = (Tregistration)nameAndArgsMap.get("data");
             valid(data.getUser());
         }
@@ -123,10 +130,12 @@ public class CheckInputParameterAspect {
             CodeAttribute codeAttribute = methodInfo.getCodeAttribute();
             LocalVariableAttribute attr = (LocalVariableAttribute) codeAttribute.getAttribute(LocalVariableAttribute.tag);
             //如果是静态方法，则第一个就是参数,如果不是静态方法，则第一个是"this"，然后才是方法的参数
-            int pos = Modifier.isStatic(cm.getModifiers()) ? 1 : 2;
+            int pos = Modifier.isStatic(cm.getModifiers()) ? 0 : 1;
+            log.info("args:" + args.length + ",parameterTypesLength:" + cm.getParameterTypes().length + ",pos:" + pos);
             for (int i = 0; i < cm.getParameterTypes().length; i++) {
                 //paramNames即参数名
                 map.put(attr.variableName(i + pos), args[i]);
+                log.info("key:{},value:{}",attr.variableName(i + pos), args[i]);
             }
         } catch (NotFoundException e) {
             log.error("e", e);

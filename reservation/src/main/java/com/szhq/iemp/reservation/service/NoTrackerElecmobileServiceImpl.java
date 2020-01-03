@@ -2,9 +2,10 @@ package com.szhq.iemp.reservation.service;
 
 import com.alibaba.fastjson.JSONObject;
 import com.szhq.iemp.common.constant.CommonConstant;
-import com.szhq.iemp.common.constant.enums.exception.*;
+import com.szhq.iemp.common.constant.enums.exception.DeviceExceptionEnum;
+import com.szhq.iemp.common.constant.enums.exception.OperatorExceptionEnum;
 import com.szhq.iemp.common.exception.NbiotException;
-import com.szhq.iemp.common.util.DecyptTokenUtil;
+import com.szhq.iemp.common.util.DencryptTokenUtil;
 import com.szhq.iemp.common.util.PropertyUtil;
 import com.szhq.iemp.common.util.SortUtil;
 import com.szhq.iemp.common.vo.MyPage;
@@ -19,6 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheConfig;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -42,7 +44,8 @@ import java.util.Set;
 @Slf4j
 @CacheConfig(cacheNames = "aepNoTrackerElec")
 public class NoTrackerElecmobileServiceImpl implements NoTrackerElecmobileService {
-
+    @Value("${spring.profiles.active}")
+    private String active;
     @Resource
     private NoTrackerElecRepository noTrackerElecRepository;
     @Autowired
@@ -58,11 +61,13 @@ public class NoTrackerElecmobileServiceImpl implements NoTrackerElecmobileServic
     @Autowired
     private RegisterationServiceImpl registerationServiceImpl;
     @Autowired
-    private ReservationService reservationService;
-    @Autowired
     private InstallSiteService installSiteService;
     @Autowired
     private PolicyInfoService policyInfoService;
+    @Autowired
+    private OperatorService operatorService;
+    @Autowired
+    private NbiotDeviceInfoService nbiotDeviceInfoService;
 
     @Resource(name = "primaryRedisUtil")
     private RedisUtil redisUtil;
@@ -133,65 +138,59 @@ public class NoTrackerElecmobileServiceImpl implements NoTrackerElecmobileServic
     }
 
     @Override
-    public List<TnoTrackerElec> findByUserId(String userId) {
-        List<Long> ids = elecmobileUserService.findNoTrackerElecIdByUserId(userId);
-        if (ids != null && ids.size() > 0) {
-            List<TnoTrackerElec> noTrackerElecs = noTrackerElecRepository.findByIds(ids);
-            return noTrackerElecs;
-        }
-        return null;
-    }
-
-    @Override
-    public Integer add(NotrackerRegister notrackerRegister, HttpServletRequest request) {
+    public Long add(NotrackerRegister notrackerRegister, HttpServletRequest request) {
         log.info("notracker-Register:" + JSONObject.toJSONString(notrackerRegister));
-        try {
+//        try {
             Tuser tuser = notrackerRegister.getUser();
             Telectrmobile electrombile = notrackerRegister.getElec();
             String reservationNo = notrackerRegister.getReservationNo();
             if (tuser == null || StringUtils.isEmpty(tuser.getId())) {
-                //UserExceptionEnum.E_0003.getMessage()
-                throw new NbiotException(200001, "参数错误");
+                throw new NbiotException(200001, "用户Id不能为空");
             }
             if (electrombile == null || StringUtils.isEmpty(electrombile.getPlateNumber())) {
-                //ElectrombileExceptionEnum.E_0004
-                throw new NbiotException(200002, "用户不存在");
+                throw new NbiotException(3000002, "电动车车牌不能为空");
             }
             validUser(tuser.getId());
             tuser = userService.updateUser(tuser);
+            //有设备
             if (StringUtils.isNotEmpty(electrombile.getImei())) {
                 Tregistration register = new Tregistration();
-                register.setElectrmobile(electrombile);
+                register.setElectrombile(electrombile);
                 register.setUser(tuser);
                 register.setReservationNo(reservationNo);
-                registrationService.register(register, false);
+                Tregistration tregistration = registrationService.register(register, false);
                 if(tuser.getOperatorId() == null || tuser.getOperatorId() == 0){
                     TdeviceInventory device = deviceInventoryService.findByImei(electrombile.getImei());
                     updateUser(tuser, device);
                 }
-                return 1;
-            } else {
-                Integer workerOperatorId = DecyptTokenUtil.getOperatorId(request);
+                return tregistration.getRegisterId();
+            }
+            //无设备
+            else {
+                Integer workerOperatorId = DencryptTokenUtil.getOperatorId(request);
                 if (workerOperatorId == null) {
                     log.error("no right. worker operatorId is null.");
                     throw new NbiotException(600011, OperatorExceptionEnum.E_00012.getMessage());
                 }
                 registerationServiceImpl.validElecPlateNo(electrombile.getPlateNumber());
                 registerationServiceImpl.validElecmobileVin(electrombile.getVin());
-                TnoTrackerElec tnoTrackerElec = createNotrackerElec(electrombile, tuser);
-                log.debug("");
-                saveNoTrackerElecUserRelationShip(tuser, tnoTrackerElec, workerOperatorId);
-                deleteNoTrackerRedisKey();
-                if (StringUtils.isNotEmpty(notrackerRegister.getReservationNo())) {
-                    reservationService.deleteByReserNo(notrackerRegister.getReservationNo());
+                Tregistration register = new Tregistration();
+                register.setElectrombile(electrombile);
+                register.setUser(tuser);
+                Toperator operator = operatorService.findById(workerOperatorId);
+                if(operator == null){
+                    log.error("operator is null.operatorId:" + workerOperatorId);
+                    throw new NbiotException(500, "");
                 }
-                return 1;
+                register.setOperator(operator);
+                register.setReservationNo(reservationNo);
+                Tregistration tregistration = registrationService.register(register, false);
+                return tregistration.getRegisterId();
             }
-        } catch (Exception e) {
-            log.error("create noTrackerElec error", e);
-            //RegisterExceptionEnum.E_0005.getCode()
-            throw new NbiotException(10000002, "");
-        }
+//        } catch (Exception e) {
+//            log.error("create noTrackerElec error", e);
+//            throw new NbiotException(10000002, RegisterExceptionEnum.E_0005.getMessage());
+//        }
     }
 
     @Override
@@ -199,7 +198,6 @@ public class NoTrackerElecmobileServiceImpl implements NoTrackerElecmobileServic
         Tuser tuser = notrackerRegister.getUser();
         Telectrmobile electrombile = notrackerRegister.getElec();
         if (tuser == null || StringUtils.isEmpty(tuser.getPhone())) {
-            //UserExceptionEnum.E_0006
             throw new NbiotException(200004, "参数错误");
         }
         if (electrombile == null || StringUtils.isEmpty(electrombile.getPlateNumber())) {
@@ -208,23 +206,28 @@ public class NoTrackerElecmobileServiceImpl implements NoTrackerElecmobileServic
         Tuser user = userService.findByPhone(tuser.getPhone());
         if (user != null) {
             log.error("use has exist.phone:" + tuser.getPhone());
-            //UserExceptionEnum.E_0007
             throw new NbiotException(200005, "该账号已注册");
         }
-        Integer workerOperatorId = DecyptTokenUtil.getOperatorId(request);
+        Integer workerOperatorId = DencryptTokenUtil.getOperatorId(request);
         if (workerOperatorId == null) {
             log.error("worker operatorId is null.");
             throw new NbiotException(600011, OperatorExceptionEnum.E_00012.getMessage());
         }
-        registerationServiceImpl.validElecPlateNo(electrombile.getPlateNumber());
-        registerationServiceImpl.validElecmobileVin(electrombile.getVin());
-        tuser = registerationServiceImpl.createUser(null, tuser);
-        registerationServiceImpl.userPush(tuser);
-        TnoTrackerElec tnoTrackerElec = createNotrackerElec(electrombile, tuser);
-        saveNoTrackerElecUserRelationShip(tuser, tnoTrackerElec, workerOperatorId);
-        deleteNoTrackerRedisKey();
-        if (StringUtils.isNotEmpty(notrackerRegister.getReservationNo())) {
-            reservationService.deleteByReserNo(notrackerRegister.getReservationNo());
+        Tregistration register = new Tregistration();
+        register.setUser(tuser);
+        register.setElectrombile(electrombile);
+        Toperator operator = operatorService.findById(workerOperatorId);
+        if(operator == null){
+            log.error("operator is not found.operatorId:" + workerOperatorId);
+            throw new NbiotException(500, "");
+        }
+        register.setOperator(operator);
+        register.setReservationNo(notrackerRegister.getReservationNo());
+        Tregistration result = registrationService.register(register, true);
+        if(result != null){
+            TdeviceInventory device = new TdeviceInventory();
+            device.setOperatorId(workerOperatorId);
+            updateUser(result.getUser(), device);
         }
         return tuser.getId();
     }
@@ -233,12 +236,50 @@ public class NoTrackerElecmobileServiceImpl implements NoTrackerElecmobileServic
     public Long boundDevice(DeviceBound deviceBound) {
         TdeviceInventory device = deviceInventoryService.findByImei(deviceBound.getImei());
         Tuser user = validUser(deviceBound.getUserId());
-        //310绑定设备
-        if (CommonConstant.DEVICE_MODE_310.equals(deviceBound.getType())) {
-            Long id = register310(deviceBound, device, user);
-            return id;
+        if(StringUtils.isNotEmpty(deviceBound.getType()) && !deviceBound.getType().equals(device.getModelNo())){
+            log.error("wrong parameter.device modelNo wrong.imei:" + deviceBound.getImei());
+            throw new NbiotException(400023, DeviceExceptionEnum.E_00037.getMessage());
         }
-        throw new NbiotException(DeviceExceptionEnum.E_00037.getCode(), DeviceExceptionEnum.E_00037.getMessage());
+        //310绑定设备
+        if (CommonConstant.DEVICE_MODE_310.equals(deviceBound.getType()) || CommonConstant.DEVICE_MODE_310.equals(device.getModelNo())) {
+            return register310(deviceBound, device, user);
+        }
+        //302绑定设备
+        if (CommonConstant.DEVICE_MODE_302.equals(device.getModelNo())) {
+            if(StringUtils.isEmpty(deviceBound.getPlateNumber())){
+                log.error("boundDevice error,plateNo is must input!");
+                throw new NbiotException(3000002, "");
+            }
+            Tregistration register = registrationService.findByPlateNo(deviceBound.getPlateNumber());
+            if(register == null){
+                log.error("no register found.plateNo:" + deviceBound.getPlateNumber());
+                throw new NbiotException(10000007, "该备案信息不存在");
+            }
+            if(StringUtils.isNotEmpty(register.getImei())){
+                log.error("the electrmobile has bound devices.imei:" + register.getImei());
+                throw new NbiotException(3000011, "该车已绑定设备");
+            }
+            Telectrmobile electrmobile = electrombileService.findByElecId(register.getElectrmobileId());
+            if(electrmobile != null){
+                electrmobile = createElecmobileData(electrmobile, device, user);
+                electrombileService.save(electrmobile);
+                redisUtil.del(CommonConstant.ELEC_ID + electrmobile.getElectrmobileId());
+                log.info("update elecmobile success.elecId:" + electrmobile.getElectrmobileId());
+                updateElecUserRelationShip(electrmobile, device.getOperatorId());
+            }
+            deviceInventoryService.updateDevStat(device.getImei(), 1);
+            registerationServiceImpl.saveDeviceInfo(device);
+            registerationServiceImpl.addSaleRecord(device);
+            if(user.getOperatorId() == null || user.getOperatorId() == 0){
+                updateUser(user, device);
+            }
+            if(!"kfyd".equals(active)){
+                registerationServiceImpl.sendRedisInfo(device, deviceBound.getImei());
+            }
+            boundPolicyToUser(device.getImei(), user.getId());
+            return updateRegister(device, register);
+        }
+        throw new NbiotException(400023, DeviceExceptionEnum.E_00037.getMessage());
     }
 
     @Override
@@ -249,7 +290,7 @@ public class NoTrackerElecmobileServiceImpl implements NoTrackerElecmobileServic
             return 1;
         }
         else{
-            log.error("unbound device is not found.imei:" + imei);
+            log.error("unbound failed. device is not found.imei:" + imei);
             throw new NbiotException(400002, DeviceExceptionEnum.E_0000.getMessage());
         }
     }
@@ -259,30 +300,25 @@ public class NoTrackerElecmobileServiceImpl implements NoTrackerElecmobileServic
         List<TelectrombileUser> elecUsers = elecmobileUserService.findByUserId(userId);
         if (elecUsers.isEmpty()) {
             log.error("no elec found.userId:" + userId);
-            //UserExceptionEnum.E_0008.getCode()
             throw new NbiotException(200006, "该用户无电动车");
         }
         Telectrmobile electrmobile = electrombileService.findByElecId(elecId);
         if(electrmobile == null){
             log.error("elecId is null.elecId:" + elecId);
-            //ElectrombileExceptionEnum.E_0009
             throw new NbiotException(3000006, "");
         }
-        for (TelectrombileUser elecUser : elecUsers) {
-            if (elecUser.getElectrombileId() != null && elecUser.getElectrombileId().equals(elecId)) {
-                log.info("has imei.delete elecId:" + elecId);
-                Telectrmobile electrombile = electrombileService.findByElecId(elecId);
-                if (electrombile != null) {
-                    unBoundDevice(electrombile.getImei());
-                }
-                break;
-            }
-            if (elecUser.getNoTrackerElecId() != null && elecUser.getNoTrackerElecId().equals(elecId)) {
-                log.info("no imei.delete elecId:" + elecId);
-                TnoTrackerElec tnoTrackerElec = findById(elecId);
-                deleteById(elecId);
-                break;
-            }
+        if(StringUtils.isNotEmpty(electrmobile.getImei())){
+            log.info("has imei.delete elecId:" + elecId);
+            unBoundDevice(electrmobile.getImei());
+        }
+        else{
+            Long elecmobileId = electrmobile.getElectrmobileId();
+            electrombileService.deleteByElecId(elecmobileId);
+            registrationService.deleteByElecId(elecmobileId);
+            elecmobileUserService.deleteByElecId(elecmobileId);
+            registerationServiceImpl.deleteRegisterAndElecRedisKey();
+            delRedisKeyByElec(elecmobileId);
+            redisUtil.del(CommonConstant.REGISTER_USERID + userId);
         }
         return 1;
     }
@@ -294,66 +330,42 @@ public class NoTrackerElecmobileServiceImpl implements NoTrackerElecmobileServic
             Tregistration register = registrationService.findByImei(imei);
             if(register == null){
                 log.error("device is not register.imei:" + imei);
-                //RegisterExceptionEnum.E_0002.getMessage()
-                throw new NbiotException(10000001, "");
+                throw new NbiotException(10000001, "该备案信息不存在");
             }
-            Telectrmobile telectrombile = electrombileService.findByImei(imei);
-            if (telectrombile == null) {
-                throw new NbiotException(DeviceExceptionEnum.E_0000.getCode(), DeviceExceptionEnum.E_0000.getMessage());
+            Telectrmobile electrombile = electrombileService.findByImei(imei);
+            if (electrombile == null) {
+                throw new NbiotException(400002, DeviceExceptionEnum.E_0000.getMessage());
             }
-            Tuser user = userService.findById(register.getUserId());
-            TnoTrackerElec tnoTrackerElec = createNotrackerElec(telectrombile, user);
-            List<TelectrombileUser> elecUsers = elecmobileUserService.findByElecId(telectrombile.getElectrmobileId());
-            if (elecUsers != null && !elecUsers.isEmpty()) {
-                TelectrombileUser elecuser = elecUsers.get(0);
-                elecuser.setOperatorId(null);
-                elecuser.setElectrombileId(null);
-                elecuser.setNoTrackerElecId(tnoTrackerElec.getId());
-                elecmobileUserService.update(elecuser);
+            if(CommonConstant.DEVICE_MODE_302.equals(register.getModelNo())){
+                updateElectrmobileToNull(electrombile);
+                updateElecUserOperatorToNull(electrombile.getElectrmobileId(), register.getUserId());
+                updateRegisterToNull(register);
+                deviceInventoryService.updateDevStat(imei, 2);
+                nbiotDeviceInfoService.deleteByImei(imei);
+                registerationServiceImpl.deleteOldImeiData(imei);
+                registerationServiceImpl.deleteRegisterAndElecRedisKey();
+                registerationServiceImpl.saveDeleteRegisterLog(register);
+                redisUtil.del(CommonConstant.ELEC_ID + electrombile.getElectrmobileId());
+                redisUtil.del(CommonConstant.REGISTER_USERID + register.getUserId());
+                redisUtil.del(CommonConstant.DEVICE_IMEI + imei);
             }
-            registrationService.deleteRegistration(register.getRegisterId(), imei, false);
-            deleteNoTrackerRedisKey();
+            if(CommonConstant.DEVICE_MODE_310.equals(register.getModelNo())){
+                registrationService.deleteRegister(register.getRegisterId());
+            }
         } catch (Exception e) {
             log.error("unboundDeviceNoDeleteElec error.", e);
-            throw new NbiotException(400001, "");
+            throw new NbiotException(400001, "解绑失败");
         }
         return j;
     }
 
-    @Override
-    public Integer deleteById(Long id) {
-        TnoTrackerElec noTrackerElec = findById(id);
-        if (noTrackerElec != null) {
-            Integer i = elecmobileUserService.deleteByNoTrackerElecId(noTrackerElec.getId());
-            log.info("delete elecmobileUser success. i:" + i);
-        }
-        noTrackerElecRepository.deleteById(id);
-        deleteNoTrackerRedisKey();
-        return 1;
-    }
-
-    @Override
-    public Integer deleteByUserId(String userId) {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public Integer update(TnoTrackerElec tnoTrackerElec) {
-        TnoTrackerElec elec = findById(tnoTrackerElec.getId());
-        if (elec == null) {
-            //ElectrombileExceptionEnum.E_0009
-            throw new NbiotException(3000006, "");
-        }
-        BeanUtils.copyProperties(tnoTrackerElec, elec, PropertyUtil.getNullProperties(tnoTrackerElec));
-        noTrackerElecRepository.save(elec);
-        return 1;
-    }
-
+    /**
+     * 310备案
+     */
     private Long register310(DeviceBound deviceBound, TdeviceInventory device, Tuser user) {
         Telectrmobile electrombile = create310ElectrmobileData(deviceBound, device, user);
         Tregistration register = new Tregistration();
-        register.setElectrmobile(electrombile);
+        register.setElectrombile(electrombile);
         register.setUser(user);
         Tregistration newRegister = registrationService.register(register, false);
         if(user.getOperatorId() == null || user.getOperatorId() == 0){
@@ -361,6 +373,24 @@ public class NoTrackerElecmobileServiceImpl implements NoTrackerElecmobileServic
         }
         boundPolicyToUser(device.getImei(), user.getId());
         return newRegister.getRegisterId();
+    }
+
+    /**
+     * 修改备案
+     */
+    private Long updateRegister(TdeviceInventory device, Tregistration register) {
+        if(register != null && device != null){
+            register.setIsp(device.getIsp());
+            register.setImei(device.getImei());
+            register.setOperatorId(device.getOperatorId());
+            register.setInstallSiteId(device.getInstallSiteId());
+            register.setInstallSiteName(device.getInstallSiteName());
+            register.setModelNo(device.getModelNo());
+        }
+        register = registrationService.save(register);
+
+        registerationServiceImpl.deleteRegisterAndElecRedisKey();
+        return register.getRegisterId();
     }
 
     private void boundPolicyToUser(String imei, String userId) {
@@ -393,16 +423,17 @@ public class NoTrackerElecmobileServiceImpl implements NoTrackerElecmobileServic
         if (StringUtils.isEmpty(electrombile.getImei())) {
             electrombile.setImei(device.getImei());
         }
-        String random = String.format("%07d", new Random().nextInt(1000000) + 1);
+        String random = String.format("%08d", new Random().nextInt(1000000000) + 1);
+        String random2 = String.format("%08d", new Random().nextInt(10000000) + 1);
         if (StringUtils.isEmpty(electrombile.getVin())) {
-            electrombile.setVin(random);
+            electrombile.setVin(random + random2);
         }
         return electrombile;
     }
 
     private void setElectrmobileData(Telectrmobile electrombile, TdeviceInventory device, Tuser newUser) {
         electrombile.setImei(device.getImei());
-        RegisterationServiceImpl.setElecValue(electrombile, device, newUser, installSiteService);
+        RegisterationServiceImpl.setElecValue(electrombile, device, newUser, installSiteService, null);
     }
 
     /**
@@ -436,6 +467,7 @@ public class NoTrackerElecmobileServiceImpl implements NoTrackerElecmobileServic
         }
         try {
             user = userService.add(user);
+
         } catch (Exception e) {
             log.error("update user error", e);
             throw new NbiotException(200003, "修改用户信息失败");
@@ -454,13 +486,64 @@ public class NoTrackerElecmobileServiceImpl implements NoTrackerElecmobileServic
         return tnoTrackerElec;
     }
 
-    private void saveNoTrackerElecUserRelationShip(Tuser newUser, TnoTrackerElec tnoTrackerElec, Integer operatorId) {
-        String userId = newUser.getId();
-        TelectrombileUser electrombileUser = new TelectrombileUser();
-        electrombileUser.setNoTrackerElecId(tnoTrackerElec.getId());
-        electrombileUser.setUserId(userId);
-        electrombileUser.setOperatorId(operatorId);
-        elecmobileUserService.save(electrombileUser);
+    private void updateElecUserRelationShip(Telectrmobile electrmobile, Integer operatorId) {
+        Long elecId = electrmobile.getElectrmobileId();
+        List<TelectrombileUser> electrombileUsers = elecmobileUserService.findByElecId(elecId);
+        if(electrombileUsers != null && !electrombileUsers.isEmpty()){
+            for(TelectrombileUser electrombileUser : electrombileUsers){
+                electrombileUser.setOperatorId(operatorId);
+                elecmobileUserService.save(electrombileUser);
+            }
+        }
+    }
+
+    private void delRedisKeyByElec(Long elecId) {
+        String key1 = CommonConstant.ELECALL_ID_KEY + "*" + elecId + "*";
+        Set<String> sets1 = redisUtil.keys(key1);
+        if (sets1 != null && sets1.size() > 0) {
+            for (String s : sets1) {
+                log.info("del redis key [" + s + "]");
+                redisUtil.del(s);
+            }
+        }
+    }
+
+    private void updateRegisterToNull(Tregistration register) {
+        register.setImei(null);
+        register.setInstallSiteId(null);
+        register.setInstallSiteName(null);
+        register.setIsp(null);
+        register.setModelNo(null);
+        registrationService.save(register);
+        log.info("update register to null success.");
+    }
+
+    private void updateElecUserOperatorToNull(Long elecId, String userId) {
+       TelectrombileUser electrombileUser = elecmobileUserService.findByUserIdAndElecId(userId, elecId);
+       electrombileUser.setOperatorId(null);
+       elecmobileUserService.save(electrombileUser);
+        log.info("update elec-user to null success.");
+    }
+
+    private void updateElectrmobileToNull(Telectrmobile electrombile) {
+        electrombile.setImei(null);
+        electrombile.setPoliceId(null);
+        electrombile.setPoliceName(null);
+        electrombile.setDevname(null);
+        electrombile.setDevtype(null);
+        electrombile.setInstallSiteName(null);
+        electrombile.setInstallSiteId(null);
+        electrombile.setManufactorName(null);
+        electrombile.setManufactorId(null);
+        electrombile.setRegionId(null);
+        electrombile.setRegionName(null);
+        electrombile.setStorehouseName(null);
+        electrombile.setStorehouseId(null);
+        electrombile.setModelNo(null);
+        electrombile.setIotTypeName(null);
+        electrombile.setIotTypeId(null);
+        electrombileService.save(electrombile);
+        log.info("update elec to null success.");
     }
 
     @Override

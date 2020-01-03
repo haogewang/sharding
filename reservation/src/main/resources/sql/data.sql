@@ -1,5 +1,5 @@
 INSERT t_operator(id, name, address, create_time, storehouse_id, region_id, type) SELECT 1,'华强','深圳', now(), 1, 440300, 1 FROM dual WHERE not EXISTS (select 1 from t_operator where t_operator.id = 1);
-INSERT t_device_storehouse(id,name,store_level,operator_id, region_id, address) SELECT 1,'华强仓库', 1, 1, 440300,'陕西西安' FROM dual WHERE not EXISTS (select 1 from t_device_storehouse where t_device_storehouse.id = 1);
+INSERT t_device_storehouse(id,name,create_time, store_level,operator_id, region_id, address) SELECT 1,'华强仓库', now(), 1, 1, 440300,'陕西西安' FROM dual WHERE not EXISTS (select 1 from t_device_storehouse where t_device_storehouse.id = 1);
 INSERT t_device_manufactor(id,name) SELECT 1,'华强技术' FROM dual WHERE not EXISTS (select 1 from t_device_manufactor where t_device_manufactor.id = 1);
 INSERT t_iot_type(id,name) SELECT 1,'onenet' FROM dual WHERE not EXISTS (select 1 from t_iot_type where t_iot_type.id = 1);
 INSERT t_iot_type(id,name) SELECT 2,'iot' FROM dual WHERE not EXISTS (select 1 from t_iot_type where t_iot_type.id = 2);

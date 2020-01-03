@@ -22,4 +22,9 @@ public class UserInsuranceServiceImpl implements UserInsuranceService {
 	public List<TuserInsurance> findByPolicyId(Long policyId) {
 		return userInsuranceRepository.findByPolicyId(policyId);
 	}
+
+	@Override
+	public void deleteByPolicyIds(List<Long> ids) {
+		userInsuranceRepository.deleteByPolicyIds(ids);
+	}
 }

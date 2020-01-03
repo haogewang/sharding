@@ -34,11 +34,11 @@ public interface DeviceDispachHistoryRepository extends JpaRepository<TdeviceDis
     public List<Map<String, Object>> backOffStatistic(@Param("operatorIds") List<Integer> operatorIds, Pageable pageable);
 
     @Query(value = "select oldsite_id, oldsite_name, count(imei) as total_count, sum(if(isp='CT', 1,0)) as ct_count, "
-            + "sum(if(isp='CMCC', 1,0)) as cmcc_count, sum(if(isp='CUCC', 1,0)) as cucc_count, create_time from t_device_dispatch_history where type='backoff' and old_site_name like '%?1%' group by day(create_time)", nativeQuery = true)
+            + "sum(if(isp='CMCC', 1,0)) as cmcc_count, sum(if(isp='CUCC', 1,0)) as cucc_count, create_time from t_device_dispatch_history where type='backoff' and old_site_name like %?1% group by day(create_time)", nativeQuery = true)
     public List<Map<String, Object>> backOffStatistic(String installSiteName, Pageable pageable);
 
     @Query(value = "select oldsite_id, oldsite_name, count(imei) as total_count, sum(if(isp='CT', 1,0)) as ct_count, "
-            + "sum(if(isp='CMCC', 1,0)) as cmcc_count, sum(if(isp='CUCC', 1,0)) as cucc_count, create_time from t_device_dispatch_history where type='backoff' and old_site_name like '%?1%' and operator_id in (?2) group by day(create_time)", nativeQuery = true)
+            + "sum(if(isp='CMCC', 1,0)) as cmcc_count, sum(if(isp='CUCC', 1,0)) as cucc_count, create_time from t_device_dispatch_history where type='backoff' and old_site_name like %?1% and operator_id in (?2) group by day(create_time)", nativeQuery = true)
     public List<Map<String, Object>> backOffStatistic(String installSiteName, List<Integer> operatorIds, Pageable pageable);
 
     @Query(value = "select oldsite_id, oldsite_name, count(imei) as total_count, sum(if(isp='CT', 1,0)) as ct_count, "

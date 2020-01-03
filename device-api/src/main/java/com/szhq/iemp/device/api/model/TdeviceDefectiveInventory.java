@@ -47,7 +47,6 @@ public class TdeviceDefectiveInventory extends BaseEntity {
     @Column(columnDefinition = "varchar(30)")
     private String snNo;
 
-    @Column(columnDefinition = "varchar(32)")
     private Integer devstate;
 
     @Column(columnDefinition = "varchar(20) COMMENT '箱号'")
@@ -57,6 +56,9 @@ public class TdeviceDefectiveInventory extends BaseEntity {
 
     @Column(columnDefinition = "varchar(50) COMMENT '软件版本'", nullable = false)
     private String swVersion;
+
+    @Column(columnDefinition = "varchar(20) COMMENT '产品型号'")
+    private String modelNo;
 
     @ManyToOne(fetch = FetchType.LAZY, cascade = {CascadeType.REFRESH})
     @JoinColumn(columnDefinition = "INT default 1 COMMENT '仓库id'", nullable = false, name = "storehouse_id", referencedColumnName = "id", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT))

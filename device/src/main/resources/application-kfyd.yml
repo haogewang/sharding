@@ -6,7 +6,7 @@ spring:
             names: master,slave
             master:
                 driver-class-name: com.mysql.cj.jdbc.Driver
-                jdbc-url: jdbc:mysql://db:3306/tracker?useUnicode=true&characterEncoding=utf-8&autoReconnect=true&serverTimezone=GMT%2b8&zeroDateTimeBehavior=convertToNull
+                jdbc-url: jdbc:mysql://db:3306/tracker_v1?useUnicode=true&characterEncoding=utf-8&autoReconnect=true&serverTimezone=GMT%2b8&zeroDateTimeBehavior=convertToNull
                 username: fdmn
                 password: HuaQiang614376!
                 data-username: fdmn
@@ -14,24 +14,26 @@ spring:
                 data: classpath:sql/data.sql
                 pool-name: masterPool1
                 type: com.zaxxer.hikari.HikariDataSource
+                connection-test-query: SELECT 1
                 connection-timeout: 30000
                 max-lifetime: 1800000
-                minimum-idle: 5
-                maximum-pool-size: 20
+                minimum-idle: 10
+                maximum-pool-size: 50
                 auto-commit: true
                 idle-timeout: 30000
                 validation-timeout: 3000
             slave:
                 driver-class-name: com.mysql.cj.jdbc.Driver
-                jdbc-url: jdbc:mysql://db-slave:3306/tracker?useUnicode=true&characterEncoding=utf-8&autoReconnect=true&serverTimezone=GMT%2b8&zeroDateTimeBehavior=convertToNull
+                jdbc-url: jdbc:mysql://db-slave:3306/tracker_v1?useUnicode=true&characterEncoding=utf-8&autoReconnect=true&serverTimezone=GMT%2b8&zeroDateTimeBehavior=convertToNull
                 username: fdmn
                 password: HuaQiang614376!
                 pool-name: slavePool1
                 type: com.zaxxer.hikari.HikariDataSource
+                connection-test-query: SELECT 1
                 connection-timeout: 30000
                 max-lifetime: 1800000
-                minimum-idle: 5
-                maximum-pool-size: 20
+                minimum-idle: 10
+                maximum-pool-size: 50
                 auto-commit: true
                 idle-timeout: 30000
                 validation-timeout: 3000
@@ -104,10 +106,13 @@ spring:
             hibernate:
                 dialect: com.szhq.iemp.common.config.MysqlConfig
                 format_sql: true
+                jdbc:
+                    batch_size: 500
+                    order_inserts: true
         show-sql: true
     redis:
         host: redis
-        password: Changeme_123
+        password: adminadmin
         port: 6379
         timeout: 10000
         jedis:
@@ -119,7 +124,7 @@ spring:
     boot:
         admin:
             client:
-                url: http://221.176.159.146:8990/springboot-admin
+                url: http://192.168.15.114:8990/springboot-admin
                 username: admin
                 password: szhq@2019
 springfox:

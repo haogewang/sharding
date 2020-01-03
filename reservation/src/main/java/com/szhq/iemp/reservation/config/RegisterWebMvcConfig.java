@@ -15,9 +15,11 @@ public class RegisterWebMvcConfig extends WebMvcConfigurationSupport {
     @Override
     protected void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new ValidParameterInterceptor()).addPathPatterns(
-                CommonConstant.NOTRACKER_ADD_REGISTER, CommonConstant.NOTRACKER_BOUND,
+                CommonConstant.NOTRACKER_ADD_REGISTER, CommonConstant.NOTRACKER_ADD_REGISTER_NOIMEI,
+                CommonConstant.NOTRACKER_BOUND, CommonConstant.NOTRACKER_BOUND_DEVICES,
                 CommonConstant.NOTRACKER_UNBOUND_DEVICE, CommonConstant.NOTRACKER_UNBOUND, CommonConstant.NOTRACKER_UNBOUND_NO_DELELEC,
-                CommonConstant.REGISTER_URL, CommonConstant.REGISTER_CHANGEIMEI_URL, CommonConstant.REGISTER_DELETE_URL);
+                CommonConstant.REGISTER_URL, CommonConstant.REGISTER_ADD_URL,
+                CommonConstant.REGISTER_CHANGEIMEI_URL, CommonConstant.REGISTER_DELETE_URL);
     }
 
 

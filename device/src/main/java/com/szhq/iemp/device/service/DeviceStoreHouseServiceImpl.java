@@ -112,20 +112,45 @@ public class DeviceStoreHouseServiceImpl implements DeviceStoreHouseService {
         if(entity.getPolicyNameCode() != null && !Objects.equals(storeHouse.getPolicyNameCode(), entity.getPolicyNameCode())){
             if(imeis != null && !imeis.isEmpty()){
                 log.info("update storehouse policy.storehouseId:{},policyCode:{},deviceCount:{}", entity.getId(), entity.getPolicyNameCode(), imeis.size());
-                for(String imei : imeis){
-                    TpolicyInfo policyInfo = new TpolicyInfo();
-                    policyInfo.setImei(imei);
-                    policyInfo.setNameCode(entity.getPolicyNameCode());
-                    policyInfo.setName(PolicyNameEnum.getNameByCode(entity.getPolicyNameCode()));
-                    policyInfoService.updatePolicy(policyInfo);
+                List<TpolicyInfo> insertList = new ArrayList<>();
+                List<TpolicyInfo> updateList = new ArrayList<>();
+                List<TpolicyInfo> hasPolicys = policyInfoService.findByImeis(imeis);
+                if(hasPolicys != null && !hasPolicys.isEmpty()){
+                    log.info("has policys count:{}", hasPolicys.size());
+                    for(TpolicyInfo tpolicyInfo : hasPolicys){
+                        tpolicyInfo.setNameCode(entity.getPolicyNameCode());
+                        tpolicyInfo.setName(PolicyNameEnum.getNameByCode(entity.getPolicyNameCode()));
+                        tpolicyInfo.setOperatorId(storeHouse.getOperatorId());
+                        updateList.add(tpolicyInfo);
+                    }
                 }
+                List<String> policysImeis = updateList.stream().map(TpolicyInfo::getImei).collect(Collectors.toList());
+                //差集
+                List<String> noPolicysImeis = imeis.stream().filter(item -> !policysImeis.contains(item)).collect(Collectors.toList());
+                if(!noPolicysImeis.isEmpty()){
+                    log.info("no policys count:{}", noPolicysImeis.size());
+                    for(String imei : noPolicysImeis){
+                        TpolicyInfo tpolicyInfo = new TpolicyInfo();
+                        tpolicyInfo.setImei(imei);
+                        tpolicyInfo.setNameCode(entity.getPolicyNameCode());
+                        tpolicyInfo.setName(PolicyNameEnum.getNameByCode(entity.getPolicyNameCode()));
+                        tpolicyInfo.setOperatorId(storeHouse.getOperatorId());
+                        insertList.add(tpolicyInfo);
+                    }
+                }
+                if(!insertList.isEmpty()){
+                        policyInfoService.batchSave(insertList);
+                    }
+                    if(!updateList.isEmpty()){
+                        policyInfoService.batchUpdate(updateList);
+                    }
             }
         }
         else if(entity.getPolicyNameCode() == null){
             if(imeis != null && !imeis.isEmpty()){
                 log.info("delete storehouse policy.storehouseId:{},deviceCount:{}", entity.getId(), imeis.size());
                 Integer count = policyInfoService.deleteNoInstalledPolicyByImeis(imeis);
-                log.info("delete noInstalledPolicy count:" + count);
+                log.info("delete noInstalledPolicy count:{},imeis:{}", count, JSONObject.toJSONString(imeis));
             }
             storeHouse.setPolicyNameCode(null);
         }
@@ -153,6 +178,11 @@ public class DeviceStoreHouseServiceImpl implements DeviceStoreHouseService {
     @Override
     public TdeviceStoreHouse findById(Integer id) {
         return storeHouseRepository.findById(id).orElse(null);
+    }
+
+    @Override
+    public List<TdeviceStoreHouse> findByIds(List<Integer> storehouseIds) {
+        return storeHouseRepository.findByIds(storehouseIds);
     }
 
     @Override

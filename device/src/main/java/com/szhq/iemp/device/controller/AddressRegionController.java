@@ -30,12 +30,11 @@ public class AddressRegionController {
 
 	@ApiOperation(value = "区域列表", notes = "区域列表")
 	@RequestMapping(value = "/list", method = RequestMethod.POST)
-	public Result list(
-			@RequestParam(value = "offset") Integer offset,
-			@RequestParam(value = "pagesize") Integer limit,
-			@RequestParam(required = false, value = "sort") String sort,
-			@RequestParam(required = false, value = "order") String order,
-			@RequestBody(required = false) RegionQuery query) {
+	public Result list(@RequestParam(value = "offset") Integer offset,
+						@RequestParam(value = "pagesize") Integer limit,
+						@RequestParam(required = false, value = "sort") String sort,
+						@RequestParam(required = false, value = "order") String order,
+						@RequestBody(required = false) RegionQuery query) {
 		logger.info("address-query:" + JSONObject.toJSONString(query));
 		MyPage<TaddressRegion> list = addressRegionService.findByCretira(offset, limit, sort, order, query);
 		Map<String, Object> result = new HashMap<>();
@@ -44,21 +43,21 @@ public class AddressRegionController {
 		return new Result(ResultConstant.SUCCESS, result);
 	}
 
-	@ApiOperation(value = "根据id获取某一区域下一级所有子区域", notes = "根据id获取某一区域所有子区域")
+	@ApiOperation(value = "根据id获取某一区域下一级所有子区域", notes = "根据id获取某一区域下一级所有子区域")
 	@RequestMapping(value = "/getNexLevelChildrenById", method = RequestMethod.GET)
 	public Result getAllChildren(@RequestParam(value = "id") Integer id) {
 		List<AdressRegionVo> list = addressRegionService.findNexLevelAllChildrenById(id);
 		return new Result(ResultConstant.SUCCESS, list);
 	}
 	
-	@ApiOperation(value = "根据ids获取区域下一级所有子区域", notes = "根据ids获取区域所有子区域")
+	@ApiOperation(value = "根据ids获取区域下一级所有子区域", notes = "根据ids获取区域下一级所有子区域")
 	@RequestMapping(value = "/getNexLevelChildrenByIds", method = RequestMethod.POST)
 	public Result getAllChildrenByIds(@RequestBody List<Integer> ids) {
 		Map<Integer, List<AdressRegionVo>> list = addressRegionService.getNexLevelAllChildrenByIds(ids);
 		return new Result(ResultConstant.SUCCESS, list);
 	}
 
-	@ApiOperation(value = "获取安装点所有的市", notes = "获取安装点所有的市")
+	@ApiOperation(value = "获取安装点所有的市区", notes = "获取安装点所有的市区")
 	@RequestMapping(value = "/getAllSiteRegions", method = RequestMethod.POST)
 	public Result getAllSiteRegions() {
 		List<TaddressRegion> result = addressRegionService.getAllSiteCities();

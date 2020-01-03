@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import javax.transaction.Transactional;
+import java.util.List;
 
 @Service
 @Transactional
@@ -18,6 +19,11 @@ public class UserServiceImpl implements UserService {
     @Override
     public Tuser findById(String id) {
         return userRepository.findById(id).orElse(null);
+    }
+
+    @Override
+    public List<Tuser> findBySiteId(Integer siteId) {
+        return userRepository.findBySiteId(siteId);
     }
 
 }

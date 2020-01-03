@@ -50,6 +50,10 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public Tuser add(Tuser user) {
+        if(StringUtils.isNotEmpty(user.getId())){
+            redisUtil.del(CommonConstant.USER_ID + user.getId());
+            redisUtil.del(CommonConstant.REGISTER_USERID + user.getId());
+        }
         return userRepository.save(user);
     }
 

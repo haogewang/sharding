@@ -96,4 +96,10 @@ public class InsuranceServiceImpl implements InsuranceService {
 	public String getTypeByCode(Integer code) {
 		return PolicyTypeEnum.getTypeByCode(code);
 	}
+
+	@Override
+	public List<Tinsurance> listByPolicyCode(Integer id) {
+		return insuranceRepository.listByPolicyCode(id);
+	}
+
 }

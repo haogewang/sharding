@@ -3,6 +3,8 @@ package com.szhq.iemp.device.api.vo;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
 
+import java.util.Date;
+
 /**
  * @author wanghao
  * @date 2019/9/2
@@ -15,6 +17,10 @@ public class InstallSiteAndWorker {
 
     private String workerName;
 
+    private String workerLoginName;
+
+    private String workerPhone;
+
     private String installSiteName;
 
     private Integer installSiteId;
@@ -22,4 +28,8 @@ public class InstallSiteAndWorker {
     private Double avgScore;
 
     private Integer totalCount;
+
+    private Integer unNormalCount;
+
+    private String date;
 }

@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.szhq.iemp.common.constant.CommonConstant;
 import com.szhq.iemp.common.constant.ResultConstant;
+import com.szhq.iemp.common.util.ProcessKillUtil;
 import com.szhq.iemp.common.util.TimeStampUtil;
 import com.szhq.iemp.common.vo.Result;
 import com.szhq.iemp.reservation.api.model.TcommonConfig;
@@ -52,6 +53,12 @@ public class CommonController {
         return new Result(ResultConstant.SUCCESS, date);
     }
 
+    @ApiOperation(value = "查看堆栈", notes = "查看堆栈")
+    @RequestMapping(value = "/getAllStackInfo", method = RequestMethod.GET)
+    public Result getAllStackInfo() {
+        return new Result(ResultConstant.SUCCESS, Thread.getAllStackTraces());
+    }
+
     @ApiOperation(value = "获取每天最大预约数", notes = "获取每天最大预约数")
     @RequestMapping(value = "/getMaxReservationNum", method = RequestMethod.GET)
     public Result getMaxReservationNum() {
@@ -82,7 +89,17 @@ public class CommonController {
         return new Result(ResultConstant.SUCCESS, MyWebSocketHandler.getOnlineNum());
     }
 
-    @ApiOperation(value = "获取W310使用说明书", notes = "获取W310使用说明书")
+
+    @ApiOperation(value = "测试kill进程", notes = "测试kill进程")
+    @RequestMapping(value = "/testKillProcess", method = RequestMethod.GET)
+    public Result testKillProcess() {
+        String pid = ProcessKillUtil.getCurrentPid();
+        logger.error("pid:" + pid);
+        ProcessKillUtil.killProcessByPid(pid);
+       return new Result(ResultConstant.FAILED, "kill process");
+    }
+
+        @ApiOperation(value = "获取W310使用说明书", notes = "获取W310使用说明书")
     @RequestMapping(value = "/get310instruction", method = RequestMethod.GET)
     public Result get310instruction() {
         TcommonConfig common = commonService.findByName(CommonConstant.INSTRUCTION_KEY);
@@ -101,7 +118,7 @@ public class CommonController {
         String key4 = CommonConstant.REGISTER_IOTDEVICEID + "*";
         String key5 = CommonConstant.REGISTER_IMEI + "*";
         String key6 = CommonConstant.IOTDEVICEID + "*";
-        String key7 = CommonConstant.DEVICE_IMEI + "*";
+        String key7 = CommonConstant.DEVICE_IMEI;
         String key8 = CommonConstant.REGISER_PATTERN;
         String key9 = CommonConstant.RESERVATION_PATTERN;
         String key10 = CommonConstant.ELEC_COLORS_PATTERN;
@@ -118,9 +135,11 @@ public class CommonController {
         String key21 = CommonConstant.REGION_PATTERN;
         String key22 = CommonConstant.USER_ID;
         String key23 = CommonConstant.ELEC_ID;
-        int sum = deleteRedis(key1, key2, key3, key4, key5, key6, key7,
+        String key24 = CommonConstant.REGION_ID + "*";
+        int sum = deleteRedis(key1, key2, key3, key4, key5, key6,
                 key8, key9, key10, key11, key12, key13, key14, key15, key16,
-                key17, key18, key19, key20, key21, key22, key23);
+                key17, key18, key19, key20, key21, key22, key23, key24);
+        deleteRedisDeviceImeiByImei(key7);
         return new Result(ResultConstant.SUCCESS, sum);
     }
 
@@ -334,6 +353,17 @@ public class CommonController {
             }
         }
         return  count;
+    }
+
+    private void deleteRedisDeviceImeiByImei(String keys) {
+        Map<Object, Object> map = redisUtil.hgetAll(keys);
+        if(map != null && map.size() > 0){
+            for(Object key : map.entrySet()){
+                logger.info("key:" + key);
+                redisUtil.hdel(keys, key);
+                logger.info("redis delete key [" + keys + key + "] success");
+            }
+        }
     }
 
 }

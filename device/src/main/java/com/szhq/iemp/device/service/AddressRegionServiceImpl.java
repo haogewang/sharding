@@ -54,6 +54,9 @@ public class AddressRegionServiceImpl implements AddressRegionService {
                     if (regionQuery.getRegionId()!= null) {
                         list.add(criteriaBuilder.equal(root.get("id").as(Integer.class), regionQuery.getRegionId()));
                     }
+                    if (regionQuery.getAddressRegionId()!= null) {
+                        list.add(criteriaBuilder.equal(root.get("id").as(Integer.class), regionQuery.getAddressRegionId()));
+                    }
                     if (regionQuery.getRegionIds() != null) {
                         list.add(root.get("id").as(Integer.class).in(regionQuery.getRegionIds()));
                     }
@@ -78,7 +81,7 @@ public class AddressRegionServiceImpl implements AddressRegionService {
             redisUtil.set(CommonConstant.REGION_ID + id, region);
             return region;
         }
-        log.info("get region data from redis.");
+        log.info("get region data from redis.regionId:" + id);
         return region;
     }
 
@@ -141,10 +144,10 @@ public class AddressRegionServiceImpl implements AddressRegionService {
             adressRegionVo.setId(Long.valueOf(adressRegion.getId()));
             adressRegionVo.setAreaName(adressRegion.getAreaName());
             adressRegionVo.setAreaCode(adressRegion.getAreaCode());
-            if (adressRegion.getParent() != null) {
-                adressRegionVo.setParentId(Long.valueOf(adressRegion.getParent().getId()));
-                adressRegionVo.setParentAreaCode(adressRegion.getParent().getAreaCode());
-                adressRegionVo.setParentAreaName(adressRegion.getParent().getAreaName());
+            if (adressRegion.getRegion() != null) {
+                adressRegionVo.setParentId(Long.valueOf(adressRegion.getRegion().getId()));
+                adressRegionVo.setParentAreaCode(adressRegion.getRegion().getAreaCode());
+                adressRegionVo.setParentAreaName(adressRegion.getRegion().getAreaName());
             }
             adressRegionVoList.add(adressRegionVo);
         }
@@ -153,15 +156,15 @@ public class AddressRegionServiceImpl implements AddressRegionService {
 
     @Override
     public List<TaddressRegion> getAllSiteCities() {
-        List<Integer> ids = regionRepository.findAllSiteCityIds();
-        List<TaddressRegion> result = getTadressRegions(ids);
+        List<Integer> ids = regionRepository.findAllSiteRegionIds();
+        List<TaddressRegion> result = getAddressRegions(ids);
         return result;
     }
 
     @Override
     public List<TaddressRegion> getAllRegionsByCityId(Integer id) {
         List<Integer> ids = regionRepository.getAllRegionsByCityId(id);
-        List<TaddressRegion> result = getTadressRegions(ids);
+        List<TaddressRegion> result = getAddressRegions(ids);
         return result;
     }
 
@@ -176,12 +179,13 @@ public class AddressRegionServiceImpl implements AddressRegionService {
         return 1;
     }
 
-    private List<TaddressRegion> getTadressRegions(List<Integer> ids) {
+    private List<TaddressRegion> getAddressRegions(List<Integer> ids) {
         List<TaddressRegion> result = new ArrayList<>();
         if (ids != null && !ids.isEmpty()) {
             for (Integer id : ids) {
                 TaddressRegion region = findById(id);
                 if (region != null) {
+                    region.setRegion(region.getRegion());
                     result.add(region);
                 }
             }

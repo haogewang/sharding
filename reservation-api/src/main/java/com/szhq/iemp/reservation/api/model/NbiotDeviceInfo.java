@@ -2,6 +2,8 @@ package com.szhq.iemp.reservation.api.model;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
+import org.hibernate.annotations.DynamicInsert;
+import org.hibernate.annotations.DynamicUpdate;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -13,6 +15,8 @@ import java.util.Date;
  */
 @Entity(name="nbiot_device_info")
 @Data
+@DynamicUpdate
+@DynamicInsert
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public class NbiotDeviceInfo implements Serializable {
 
@@ -60,7 +64,7 @@ public class NbiotDeviceInfo implements Serializable {
     /**
      * 上一次上数时间
      */
-    private String lastDataTime;
+    private Date lastDataTime;
 
     /**
      *无线服务商Id

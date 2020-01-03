@@ -48,17 +48,15 @@ public class NoTrackerElecController {
         return new Result(ResultConstant.SUCCESS, result);
     }
 
-    @ApiOperation(value = "添加车辆(有imei时备案,用户Id必填) ", notes = "添加车辆(有imei时备案)")
+    @ApiOperation(value = "添加车辆(有imei时备案,用户Id必填) ", notes = "添加车辆(有imei时备案,用户Id必填)")
     @RequestMapping(value = {"/addRegister", "/addRegisterNoImei"}, method = RequestMethod.POST)
     public Result addRegister(@RequestBody NotrackerRegister data, HttpServletRequest request, BindingResult result) {
-        if (result.hasErrors()) {
-            if (result.getFieldError() != null) {
-                String message = result.getFieldError().getDefaultMessage();
-                log.error("addRegister error." + message);
-                return new Result(ResultConstant.FAILED, message);
-            }
+        if (result.hasErrors() && result.getFieldError() != null) {
+            String message = result.getFieldError().getDefaultMessage();
+            log.error("addRegister error." + message);
+            return new Result(ResultConstant.FAILED, message);
         }
-        Integer i = noTrackerElecmobileService.add(data, request);
+        Long i = noTrackerElecmobileService.add(data, request);
         return new Result(ResultConstant.SUCCESS, i);
     }
 
@@ -104,7 +102,7 @@ public class NoTrackerElecController {
         deviceBound.setType(type);
         deviceBound.setUserId(userId);
         noTrackerElecmobileService.boundDevice(deviceBound);
-        return new Result(ResultConstant.SUCCESS, "");
+        return new Result(ResultConstant.SUCCESS, ResultConstant.SUCCESS.getMessage());
     }
 
     @ApiOperation(value = "解绑设备(310)", notes = "解绑设备(310)")
@@ -114,7 +112,7 @@ public class NoTrackerElecController {
         return new Result(ResultConstant.SUCCESS, ResultConstant.SUCCESS.getMessage());
     }
 
-    @ApiOperation(value = "解绑(无设备时删除电动车)", notes = "无设备时删除电动车,有设备时只解绑设备")
+    @ApiOperation(value = "解绑(无设备时删除电动车,有设备时都删除)", notes = "无设备时删除电动车,有设备时都删除")
     @RequestMapping(value = "/unbound", method = RequestMethod.POST)
     public Result unbound(@RequestParam("userId") String userId, @RequestParam("elecId") Long elecId) {
         noTrackerElecmobileService.unBoundByElecIdAndUserId(userId, elecId);
@@ -123,25 +121,8 @@ public class NoTrackerElecController {
 
     @ApiOperation(value = "解绑设备(不删除电动车)", notes = "解绑设备(不删除电动车)")
     @RequestMapping(value = "/unboundDeviceNoDelElec", method = RequestMethod.POST)
-    public Result unboundDeviceNoDeleElec(@RequestParam("imei") String imei) {
+    public Result unboundDeviceNoDelElec(@RequestParam("imei") String imei) {
         noTrackerElecmobileService.unboundDeviceNoDeleteElec(imei);
-        return new Result(ResultConstant.SUCCESS, ResultConstant.SUCCESS.getMessage());
-    }
-
-    @ApiOperation(value = "修改电动车信息", notes = "修改电动车信息")
-    @RequestMapping(value = "/updateElecInfo", method = RequestMethod.POST)
-    public Result updateElecInfo(@RequestBody TnoTrackerElec tnoTrackerElec) {
-        if (tnoTrackerElec.getId() == null) {
-            throw new NbiotException(400, "");
-        }
-        noTrackerElecmobileService.update(tnoTrackerElec);
-        return new Result(ResultConstant.SUCCESS, ResultConstant.SUCCESS.getMessage());
-    }
-
-    @ApiOperation(value = "删除未绑定设备电动车", notes = "删除未绑定设备电动车")
-    @RequestMapping(value = "/deleteUnboundDeviceElec", method = RequestMethod.DELETE)
-    public Result deleteUnboundDeviceElec(@RequestParam("id") Long id) {
-        noTrackerElecmobileService.deleteById(id);
         return new Result(ResultConstant.SUCCESS, ResultConstant.SUCCESS.getMessage());
     }
 

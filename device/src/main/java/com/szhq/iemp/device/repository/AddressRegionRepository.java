@@ -30,7 +30,7 @@ public interface AddressRegionRepository extends JpaRepository<TaddressRegion,In
 
 
 	@Query(value="select city_id from t_install_site group by city_id", nativeQuery = true)
-	public List<Integer> findAllSiteCityIds();
+	public List<Integer> findAllSiteRegionIds();
 
 	@Query(value="select region_id from t_install_site where city_id = ?1 group by region_id", nativeQuery = true)
     public List<Integer> getAllRegionsByCityId(Integer cityId);

@@ -23,4 +23,6 @@ public interface UserRepository extends JpaRepository<Tuser,String>,JpaSpecifica
 	@Query(value="select * from user where id in (?1)", nativeQuery = true)
 	public List<Tuser> findByIdIn(List<String> userIds);
 
+	@Query(value="select * from user where install_site_id=?1", nativeQuery = true)
+    List<Tuser> findBySiteId(Integer siteId);
 }

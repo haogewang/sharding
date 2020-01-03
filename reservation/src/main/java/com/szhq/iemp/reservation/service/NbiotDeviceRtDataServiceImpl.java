@@ -1,6 +1,7 @@
 package com.szhq.iemp.reservation.service;
 
 import com.alibaba.fastjson.JSONObject;
+import com.szhq.iemp.common.constant.CommonConstant;
 import com.szhq.iemp.reservation.api.model.NbiotDeviceRtData;
 import com.szhq.iemp.reservation.api.model.Telectrmobile;
 import com.szhq.iemp.reservation.api.service.ElectrmobileService;
@@ -23,7 +24,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-@SuppressWarnings("deprecation")
 @Service
 @Transactional
 @Slf4j
@@ -35,9 +35,8 @@ public class NbiotDeviceRtDataServiceImpl implements NbiotDeviceRtDataService {
     private ElectrmobileService electrombileService;
     @Autowired
     private EsNbiotDeviceAlarmService esNbiotDeviceAlarmService;
-
-    @Resource(name = "secondRedisUtil")
-    private RedisUtil secondRedisUtil;
+    @Resource(name = "primaryRedisUtil")
+    private RedisUtil redisUtil;
 
     private GpsTransferUtil gpsTransferUtil = new GpsTransferUtil();
 
@@ -65,7 +64,8 @@ public class NbiotDeviceRtDataServiceImpl implements NbiotDeviceRtDataService {
                 rtdata.setCreateTime(elec.getCreateTime());
                 rtdata.setFrequency(elec.getFrequency());
                 result.add(rtdata);
-            } else {
+            }
+            else {
                 rtData.setDeviceName(elec.getName());
                 rtData.setCreateTime(elec.getCreateTime());
                 rtData.setFrequency(elec.getFrequency());
@@ -104,8 +104,20 @@ public class NbiotDeviceRtDataServiceImpl implements NbiotDeviceRtDataService {
                 alarmQuery.setStartTimestamp(elec.getViewDate().getTime());
             }
             alarmQuery.setImei(elec.getImei());
-            Long count = esNbiotDeviceAlarmService.elecAlarmCount(alarmQuery);
-            NbiotDeviceRtData rtData = deviceRtDataRepository.findByImei(elec.getImei());
+            Long count = null;
+            try {
+                count = esNbiotDeviceAlarmService.elecAlarmCount(alarmQuery);
+            } catch (Exception e) {
+                log.error("e",e);
+                continue;
+            }
+            NbiotDeviceRtData rtData = null;
+            try {
+                rtData = deviceRtDataRepository.findByImei(elec.getImei());
+            } catch (Exception e) {
+                log.error("e" + elec.getImei(),e);
+                continue;
+            }
             NbiotRtDataVo rtDataVo = new NbiotRtDataVo();
             if (rtData == null) {
                 rtDataVo.setImei(elec.getImei());
@@ -114,7 +126,8 @@ public class NbiotDeviceRtDataServiceImpl implements NbiotDeviceRtDataService {
                 rtDataVo.setCreateTime(elec.getCreateTime());
                 rtDataVo.setUnReadAlarmCount(count);
                 result.add(rtDataVo);
-            } else {
+            }
+            else {
                 rtDataVo.setImei(elec.getImei());
                 rtDataVo.setDeviceName(elec.getName());
                 rtDataVo.setFrequency(elec.getFrequency());
@@ -133,8 +146,11 @@ public class NbiotDeviceRtDataServiceImpl implements NbiotDeviceRtDataService {
                         rtDataVo.setLat(gps.getDouble("lat"));
                         rtDataVo.setLon(gps.getDouble("lon"));
                         rtDataVo.setDeviceMode(gps.getString("deviceMode"));
+                        rtDataVo.setSpeed(gps.getInteger("speed"));
+                        rtDataVo.setAlt(gps.getInteger("alt"));
                         rtDataVo.setType("GPS");
-                    } else if (StringUtils.isNotEmpty(gpsTime) && StringUtils.isNotEmpty(wlanInfoTime) && Long.valueOf(gpsTime) < Long.valueOf(wlanInfoTime)) {
+                    }
+                    else if (StringUtils.isNotEmpty(gpsTime) && StringUtils.isNotEmpty(wlanInfoTime) && Long.valueOf(gpsTime) < Long.valueOf(wlanInfoTime)) {
                         JSONObject wlanJson = wlanInfo.getJSONObject("wlan");
                         rtDataVo.setTime(Long.valueOf(wlanInfoTime));
                         rtDataVo.setDeviceVoltper(wlanJson.getString("deviceVoltper"));
@@ -152,25 +168,34 @@ public class NbiotDeviceRtDataServiceImpl implements NbiotDeviceRtDataService {
                         }
                         rtDataVo.setDeviceMode(wlanJson.getString("deviceMode"));
                         rtDataVo.setType("Wi-Fi");
-                    } else {
+                    }
+                    else {
                         log.error("wrong data.gpsTime:{},wlanInfoTime:{}", gpsTime, wlanInfoTime);
                     }
                     result.add(rtDataVo);
-                } else if (StringUtils.isNotEmpty(rtData.getGps()) && StringUtils.isEmpty(rtData.getWlanInfo())) {
+                }
+                else if (StringUtils.isNotEmpty(rtData.getGps()) && StringUtils.isEmpty(rtData.getWlanInfo())) {
                     JSONObject gps = JSONObject.parseObject(rtData.getGps());
                     String gpsTime = gps.getString("time");
                     rtDataVo.setImei(elec.getImei());
                     rtDataVo.setDeviceName(elec.getName());
                     rtDataVo.setFrequency(elec.getFrequency());
-                    rtDataVo.setTime(Long.valueOf(gpsTime));
+                    if(StringUtils.isNotEmpty(gpsTime)){
+                        rtDataVo.setTime(Long.valueOf(gpsTime));
+                    }else {
+                        rtDataVo.setTime(null);
+                    }
                     rtDataVo.setDeviceVoltper(gps.getString("deviceVoltper"));
                     rtDataVo.setDeviceVolt(String.valueOf(gps.getDouble("deviceVolt")));
                     rtDataVo.setLat(gps.getDouble("lat"));
                     rtDataVo.setLon(gps.getDouble("lon"));
                     rtDataVo.setDeviceMode(gps.getString("deviceMode"));
+                    rtDataVo.setSpeed(gps.getInteger("speed"));
+                    rtDataVo.setAlt(gps.getInteger("alt"));
                     rtDataVo.setType("GPS");
                     result.add(rtDataVo);
-                } else if (StringUtils.isEmpty(rtData.getGps()) && StringUtils.isNotEmpty(rtData.getWlanInfo())) {
+                }
+                else if (StringUtils.isEmpty(rtData.getGps()) && StringUtils.isNotEmpty(rtData.getWlanInfo())) {
                     JSONObject wlanInfo = JSONObject.parseObject(rtData.getWlanInfo());
                     JSONObject wlanJson = wlanInfo.getJSONObject("wlan");
                     String wlanInfoTime = wlanJson.getString("time");
@@ -251,7 +276,16 @@ public class NbiotDeviceRtDataServiceImpl implements NbiotDeviceRtDataService {
 
     @Override
     public NbiotDeviceRtData getLocation(String imei) {
-        return findByImei(imei);
+        String rtDataString = (String) redisUtil.get(CommonConstant.RTDATA_KEY + imei);
+        if (StringUtils.isEmpty(rtDataString)) {
+            NbiotDeviceRtData rtData = findByImei(imei);
+            if (rtData != null) {
+                redisUtil.set(CommonConstant.RTDATA_KEY + imei, JSONObject.toJSONString(rtData), 5);
+            }
+            return rtData;
+        }
+        log.info("get elec data from redis by imei.imei:" + imei);
+        return JSONObject.parseObject(rtDataString, NbiotDeviceRtData.class);
     }
 
     @Override
@@ -266,25 +300,6 @@ public class NbiotDeviceRtDataServiceImpl implements NbiotDeviceRtDataService {
         List<NbiotDeviceRtData> list = new ArrayList<>();
         list = deviceRtDataRepository.saveAll(entities);
         return list.size();
-    }
-
-    public NbiotDeviceRtData dataTransfer(NbiotDeviceRtData rtData){
-        if (StringUtils.isEmpty(rtData.getGps()) && StringUtils.isNotEmpty(rtData.getWlanInfo())) {
-            JSONObject wlanInfo = JSONObject.parseObject(rtData.getWlanInfo());
-            if (wlanInfo.containsKey("location") && StringUtils.isNotEmpty(wlanInfo.getString("location"))) {
-                String location = wlanInfo.getString("location");
-                JSONObject locationJson = JSONObject.parseObject(location);
-                Double lat = locationJson.getDouble("latitude");
-                Double lon = locationJson.getDouble("longitude");
-                Map<String, Double> map = gpsTransferUtil.transfer(lat, lon);
-                locationJson.put("latitude", map.get("lat"));
-                locationJson.put("longitude", map.get("lon"));
-                wlanInfo.put("location", locationJson.toJSONString());
-                rtData.setWlanInfo(wlanInfo.toJSONString());
-                return rtData;
-            }
-        }
-        return rtData;
     }
 
     public static void main(String[] args) {

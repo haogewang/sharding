@@ -57,7 +57,7 @@ public class DeviceStoreHouseController {
             }
             storeHouseList.add(storeHouse);
         }
-        result.put("storhouses", list.getContent());
+        result.put("storhouses", storeHouseList);
         result.put("total", list.getTotal());
         return new Result(ResultConstant.SUCCESS, result);
     }

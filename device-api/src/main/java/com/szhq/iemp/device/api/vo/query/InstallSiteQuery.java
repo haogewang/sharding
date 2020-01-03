@@ -23,7 +23,7 @@ public class InstallSiteQuery extends BaseQuery {
 
     private String policeId;
 
-    private Integer regionId;
+    private Integer addressRegionId;
 
     private Double onLineRate;
 
@@ -34,4 +34,8 @@ public class InstallSiteQuery extends BaseQuery {
     private Boolean isStatistics = false;
 
     private Integer offset = 7;
+
+    private Integer provinceId;
+
+    private Integer cityId;
 }

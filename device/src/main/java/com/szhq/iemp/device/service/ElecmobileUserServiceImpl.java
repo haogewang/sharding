@@ -27,38 +27,8 @@ public class ElecmobileUserServiceImpl implements ElecmobileUserService {
     }
 
     @Override
-    public List<Integer> findNoTrackerElecIdByUserId(String userId) {
-        return electrombileUserRepository.findNoTrackerElecIdByUserId(userId);
-    }
-
-    @Override
-    public List<TelectrombileUser> findByElecId(Integer elecId) {
-        return electrombileUserRepository.findByElectrombileId(elecId);
-    }
-
-    @Override
-    public TelectrombileUser findByNoTrackerElecId(Integer noTrackerElecId) {
-        return electrombileUserRepository.findByNoTrackerElecId(noTrackerElecId);
-    }
-
-    @Override
     public TelectrombileUser save(TelectrombileUser entity) {
         return electrombileUserRepository.save(entity);
-    }
-
-    @Override
-    public Integer deleteByUserId(String userId) {
-        return electrombileUserRepository.deleteByUserId(userId);
-    }
-
-    @Override
-    public Integer deleteByElecId(Integer id) {
-        return electrombileUserRepository.deleteByElectrombileId(id);
-    }
-
-    @Override
-    public Integer deleteByNoTrackerElecId(Integer noTrackerElecId) {
-        return electrombileUserRepository.deleteByNoTrackerElecId(noTrackerElecId);
     }
 
 }

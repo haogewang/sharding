@@ -118,6 +118,12 @@ public class Treservation extends BaseEntity {
     private String agentIdNumber;
     @Transient
     private String imei;
+    @Transient
+    private Integer elecVendorId;
+    @Transient
+    private Integer elecColorId;
+    @Transient
+    private Integer elecTypeId;
 
 
 

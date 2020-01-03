@@ -55,12 +55,11 @@ public class ReservationController {
 
     @ApiOperation(value = "备案预约列表", notes = "备案预约列表")
     @RequestMapping(value = "/search", method = RequestMethod.POST)
-    public Object getReservationSearch(@RequestParam(value = "offset") Integer offset,
+    public Object search(@RequestParam(value = "offset") Integer offset,
                                        @RequestParam(value = "pagesize") Integer limit,
                                        @RequestParam(required = false, value = "sort") String sort,
                                        @RequestParam(required = false, value = "order") String order,
-                                       @RequestBody(required = false) ReservationQuery query
-    ) {
+                                       @RequestBody(required = false) ReservationQuery query) {
         log.info("reservation-query：" + JSONObject.toJSONString(query));
         MyPage<Treservation> list = reservationService.findReservationCriteria(offset, limit, sort, order, query);
         Map<String, Object> result = new HashMap<>();
@@ -75,7 +74,7 @@ public class ReservationController {
         logger.info("reservation entity:" + JSONObject.toJSONString(entity));
         Integer installSiteId = entity.getInstallSiteId();
         String reservationNumber = null;
-        validMoterNoAndVin(entity);
+        validMotorNoAndVin(entity);
         if (installSiteId != null) {
             TinstallSite installSite = installSiteService.findById(installSiteId);
             if (installSite == null) {
@@ -91,6 +90,9 @@ public class ReservationController {
             reservationNumber = new SimpleDateFormat("yyyyMMdd").format(new Date().getTime()) + String.format("%02d", new Random().nextInt(10000) + 1) + String.format("%05d", new Random().nextInt(10000) + 1);
             entity.setReservationNumber(reservationNumber);
         }
+        entity.setVendorId(entity.getElecVendorId());
+        entity.setTypeId(entity.getElecTypeId());
+        entity.setColorId(entity.getElecColorId());
         Integer count = reservationService.save(entity);
         if (count > 0) {
             JSONObject result = new JSONObject();
@@ -115,11 +117,18 @@ public class ReservationController {
     @ApiOperation(value = "通过预约号获取预约信息", notes = "通过预约号获取预约信息")
     @RequestMapping(value = "/getInfo", method = RequestMethod.GET)
     public Result getRegistrationReservation(@RequestParam(required = false, value = "number") String number) {
-        if (StringUtils.isEmpty(number)) {
+        if (number == null || StringUtils.isEmpty(number)) {
             return new Result(ResultConstant.SUCCESS, "");
         }
         Treservation entity = reservationService.getInfo(number);
+        if(entity != null && entity.getReservationTime() < System.currentTimeMillis()){
+            logger.error("reservation has expired.number:" + number);
+            throw new NbiotException(800004, "该预约码已失效");
+        }
         if (entity != null) {
+            entity.setElecColorId(entity.getColorId());
+            entity.setElecTypeId(entity.getTypeId());
+            entity.setElecVendorId(entity.getVendorId());
             return new Result(ResultConstant.SUCCESS, entity);
         }
         return new Result(ResultConstant.FAILED, "");
@@ -129,6 +138,11 @@ public class ReservationController {
     @RequestMapping(value = "/getByPhone", method = RequestMethod.GET)
     public Result getByPhone(@RequestParam(value = "phone") String phone) {
         Treservation entity = reservationService.findByPhone(phone);
+        if(entity != null){
+            entity.setElecColorId(entity.getColorId());
+            entity.setElecTypeId(entity.getTypeId());
+            entity.setElecVendorId(entity.getVendorId());
+        }
         return new Result(ResultConstant.SUCCESS, entity);
     }
 
@@ -154,7 +168,7 @@ public class ReservationController {
     }
 
 
-    private boolean validateReservationTimeAndLimit(TinstallSite installSite, Long time) {
+    private void validateReservationTimeAndLimit(TinstallSite installSite, Long time) {
         validIsInDays(installSite.getMaxReservationDay(), time);
         long dayStart = TimeStampUtil.getDayStartTs(time);
         long dayEnd = TimeStampUtil.getDayEndTs(time);
@@ -165,15 +179,18 @@ public class ReservationController {
         }
         if (reservationService.countByExample(installSite.getInstallSiteId(), dayStart, dayEnd) > count) {
             logger.error("siteId:{},dayStart:{},dayEnd:{},count:{}", installSite.getInstallSiteId(), dayStart, dayEnd, count);
-            throw new NbiotException(ReservationExceptionEnum.E_0003.getCode(), ReservationExceptionEnum.E_0003.getMessage());
+            throw new NbiotException(800003, ReservationExceptionEnum.E_0003.getMessage());
         }
-        return true;
     }
 
     /**
      * 验证是否在指定时间内
      */
     private void validIsInDays(Integer day, Long time) {
+        if(System.currentTimeMillis()/1000 > time){
+            logger.error("reservation time is wrong.");
+            throw new NbiotException(800002, "预约时间已失效");
+        }
         TcommonConfig commonConfig = commonService.findByName(CommonConstant.RESERVATION_IN_DAYS_KEY);
         if (day == null) {
             day = Integer.valueOf(commonConfig.getValue());
@@ -184,27 +201,26 @@ public class ReservationController {
         calendar.add(Calendar.DAY_OF_MONTH, day);
         Date afterDays = calendar.getTime();
         if (afterDays.getTime() < time) {
-            throw new NbiotException(500001, "预约时间只能在" + day + "日内", day);
-        } else {
-            logger.error("afterTime:{},time:{}", new Date(afterDays.getTime()), new Date(time));
+            throw new NbiotException(800001, "预约时间只能在" + day + "日内", day);
+        }
+        else {
+            logger.info("afterTime:{},time:{}", new Date(afterDays.getTime()), new Date(time));
         }
     }
 
     /**
      * 验证电机号及车架号
      */
-    private void validMoterNoAndVin(Treservation entity) {
+    private void validMotorNoAndVin(Treservation entity) {
         if (StringUtils.isNotEmpty(entity.getMotorNumber())) {
             List<Treservation> reservation = reservationService.findByMotorNumber(entity.getMotorNumber());
             if (reservation != null && reservation.size() > 0) {
-                //RegisterExceptionEnum.E_00014
                 throw new NbiotException(10000008, "");
             }
         }
         if (StringUtils.isNotEmpty(entity.getVin())) {
-            Treservation tnbiotRegistrationReservation = reservationService.findByVin(entity.getVin());
-            if (tnbiotRegistrationReservation != null) {
-                //ElectrombileExceptionEnum.E_00012
+            Treservation reservation = reservationService.findByVin(entity.getVin());
+            if (reservation != null) {
                 throw new NbiotException(3000009, "");
             }
         }

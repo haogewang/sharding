@@ -22,7 +22,7 @@ public class SecurityAuditorAware implements AuditorAware<String> {
         if (StringUtils.isEmpty(userId)) {
             return Optional.of("");
         }
-        logger.info("getCurrentAuditor,current userId is: " + userId);
+        logger.debug("getCurrentAuditor,current userId is: " + userId);
         return Optional.of(userId);
     }
 }

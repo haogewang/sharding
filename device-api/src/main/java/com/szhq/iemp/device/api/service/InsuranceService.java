@@ -47,4 +47,7 @@ public interface InsuranceService {
     String getNameByCode(Integer code);
 
     String getTypeByCode(Integer code);
+
+    List<Tinsurance> listByPolicyCode(Integer id);
+
 }

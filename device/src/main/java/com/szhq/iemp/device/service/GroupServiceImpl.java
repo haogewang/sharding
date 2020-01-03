@@ -17,9 +17,11 @@ import com.szhq.iemp.device.api.service.ElectrmobileService;
 import com.szhq.iemp.device.api.service.GroupService;
 import com.szhq.iemp.device.api.service.OperatorService;
 import com.szhq.iemp.device.api.vo.UserAndElecInfo;
+import com.szhq.iemp.device.api.vo.query.DeviceQuery;
 import com.szhq.iemp.device.api.vo.query.GroupQuery;
 import com.szhq.iemp.device.repository.GroupRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -75,7 +77,7 @@ public class GroupServiceImpl implements GroupService {
 					if(myQuery.getType() != null){
 						list.add(criteriaBuilder.equal(root.get("type").as(Integer.class), myQuery.getType()));
 					}
-					//组属性（如：大屏显示）
+					//组属性（如：大屏显示组、警察组）
 					if(myQuery.getCustomType() != null){
 						list.add(criteriaBuilder.equal(root.get("customType").as(Integer.class), myQuery.getCustomType()));
 					}
@@ -106,6 +108,10 @@ public class GroupServiceImpl implements GroupService {
 	@Override
 	public List<UserAndElecInfo> getUserAndElecInfoByImeis(List<String> imeis) {
 		List<UserAndElecInfo> result = new ArrayList<>();
+//		log.info("imeis:" + JSONObject.toJSONString(imeis));
+		if(imeis == null || imeis.isEmpty()){
+			return result;
+		}
 		List<Map<String, Object>> lists = groupRepository.getUserAndElecInfoByImeis(imeis);
 		if(lists != null && !lists.isEmpty()){
 			for (Map<String, Object> map : lists) {
@@ -143,7 +149,12 @@ public class GroupServiceImpl implements GroupService {
 			for (Map<String, Object> map : lists) {
 				Tgroup group = new Tgroup();
 				Integer groupId = Integer.valueOf(String.valueOf(map.get("id")));
-				Integer parentId = Integer.valueOf(String.valueOf(map.get("parent_id")));
+				Integer parentId;
+				if(StringUtils.isNotEmpty(String.valueOf(map.get("parent_id"))) && !"null".equals(String.valueOf(map.get("parent_id")))){
+					parentId = Integer.valueOf(String.valueOf(map.get("parent_id")));
+				}else{
+					parentId = null;
+				}
 				Integer operatorId = Integer.valueOf(String.valueOf(map.get("operator_id")));
 				String name = String.valueOf(map.get("name"));
 				group.setId(groupId);
@@ -187,7 +198,8 @@ public class GroupServiceImpl implements GroupService {
 	@Override
 	public Integer deleteDeviceGroupById(Integer id) {
 		validGroup(id, 1);
-		Integer count = deviceInventoryService.countByGroupId(id);
+		List<Tgroup> groups = getAllDeviceGroupChildrenById(id);
+		Integer count = deviceInventoryService.countByGroupIds(groups.stream().map(Tgroup::getId).collect(Collectors.toList()));
 		if(count > 0){
 			log.error("group has dispatch devices.can not delete it.id:" + id);
 			throw new NbiotException(500001, GroupExceptionEnum.E_0003.getMessage());
@@ -199,7 +211,11 @@ public class GroupServiceImpl implements GroupService {
 	@Override
 	public Integer deleteElecGroupById(Integer id) {
 		validGroup(id, 2);
-		Integer count = electrmobileService.countByGroupId(id);
+//		Integer count = electrmobileService.countByGroupId(id);
+		List<Tgroup> groups = getAllElecGroupChildrenById(id);
+		DeviceQuery query = new DeviceQuery();
+		query.setGroupIdList(groups.stream().map(Tgroup::getId).collect(Collectors.toList()));
+		Long count = electrmobileService.countByCriteria(query);
 		if(count > 0){
 			log.error("group has dispatch elecs.can not delete it.id:" + id);
 			throw new NbiotException(500001, GroupExceptionEnum.E_0003.getMessage());
@@ -215,7 +231,27 @@ public class GroupServiceImpl implements GroupService {
 
 	@Override
 	public Tgroup findById(Integer id) {
-		return groupRepository.findById(id).orElse(null);
+		Tgroup group = new Tgroup();
+		List<Map<String, Object>> lists = groupRepository.findByGroupId(id);
+		if(lists != null && !lists.isEmpty()){
+			for(Map<String, Object> map : lists){
+				Integer groupId = Integer.valueOf(String.valueOf(map.get("id")));
+				Integer operatorId = Integer.valueOf(String.valueOf(map.get("operator_id")));
+				Integer parentId = null;
+				if(StringUtils.isNotEmpty(String.valueOf(map.get("parent_id"))) && !"null".equals(String.valueOf(map.get("parent_id")))){
+					 parentId = Integer.valueOf(String.valueOf(map.get("parent_id")));
+				}
+				Integer type = Integer.valueOf(String.valueOf(map.get("type")));
+				String name = String.valueOf(map.get("name"));
+				group.setType(type);
+				group.setId(groupId);
+				group.setName(name);
+				group.setOperatorId(operatorId);
+				group.setParentId(parentId);
+				break;
+			}
+		}
+		return group;
 	}
 
 	@Override
@@ -271,7 +307,10 @@ public class GroupServiceImpl implements GroupService {
 	private List<Tgroup> findAllChildren(Integer parentId) {
 		List<Tgroup> groups = new ArrayList<>();
 		findGroupsById(parentId, groups);
-		groups.add(findById(parentId));
+		Tgroup self = findById(parentId);
+		if(self != null){
+			groups.add(self);
+		}
 		return groups;
 	}
 
@@ -280,7 +319,7 @@ public class GroupServiceImpl implements GroupService {
 		List<Map<String, Object>> lists = groupRepository.findNextGroups(parentId);
 		List<Tgroup>  result = new ArrayList<>();
 		getNextGroup(result, lists);
-		if(result != null && result.size() > 0) {
+		if(result.size() > 0) {
 			for(Tgroup group : result) {
 				groups.add(group);
 				findGroupsById(group.getId(), groups);

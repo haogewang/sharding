@@ -15,4 +15,7 @@ public interface PolicyInfoRepository extends JpaRepository<TpolicyInfo,Long>,Jp
 
     @Query(value = "select * from t_policy_info where imei = ?1 and user_id is null", nativeQuery = true)
     TpolicyInfo findByImeiAndUserIdisNull(String imei);
+
+    @Query(value = "select * from t_policy_info where imei = ?1", nativeQuery = true)
+    TpolicyInfo findByImei(String imei);
 }

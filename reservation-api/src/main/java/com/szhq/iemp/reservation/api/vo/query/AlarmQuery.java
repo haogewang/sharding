@@ -4,6 +4,8 @@ import com.szhq.iemp.common.vo.BaseQuery;
 import lombok.Data;
 import lombok.ToString;
 
+import java.util.List;
+
 @Data
 @ToString(callSuper = true)
 public class AlarmQuery extends BaseQuery {
@@ -29,4 +31,8 @@ public class AlarmQuery extends BaseQuery {
      * 产品类型(302/310)
      */
     private String modelNo;
+
+    private List<String> imeiList;
+
+    private Integer emergencyAlert;
 }

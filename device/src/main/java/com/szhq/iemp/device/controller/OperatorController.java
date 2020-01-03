@@ -45,7 +45,14 @@ public class OperatorController {
         log.info("operator-query:" + JSONObject.toJSONString(query));
         Map<String, Object> result = new HashMap<>();
         MyPage<Toperator> list = operatorService.findAllByCriteria(offset, limit, sort, order, query);
-
+//        List<Toperator> oList = new ArrayList<>();
+//        for(Toperator operator : list.getContent()){
+//            List<ToperatorPlatenoPrefix> operatorPlateNoPrefixs = operatorPlateNoPrefixService.findPlateNoPrefixByOperatorId(operator.getId());
+//            if(operatorPlateNoPrefixs != null && !operatorPlateNoPrefixs.isEmpty()){
+//                operator.setPlatenoPrefixIds(operatorPlateNoPrefixs.stream().map(ToperatorPlatenoPrefix::getPlatenoPrefixId).collect(Collectors.toList()));
+//            }
+//            oList.add(operator);
+//        }
         result.put("operators", list.getContent());
         result.put("total", list.getTotal());
         return new Result(ResultConstant.SUCCESS, result);

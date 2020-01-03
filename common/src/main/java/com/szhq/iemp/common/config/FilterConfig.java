@@ -25,7 +25,7 @@ public class FilterConfig {
         registration.setDispatcherTypes(DispatcherType.REQUEST);
         registration.setFilter(new ParamsFilter());
         registration.addUrlPatterns(
-                CommonConstant.REGISTER_SEARCH_URL, CommonConstant.REGISTER_LIST_URL,
+                CommonConstant.REGISTER_SEARCH_URL, CommonConstant.REGISTER_SEARCHER_URL, CommonConstant.REGISTER_LIST_URL,
                 CommonConstant.ELECMOBILE_SEARCH_URL, CommonConstant.RESERVATION_SEARCH_URL,
                 CommonConstant.INSTALLSITE_SEARCH_URL, CommonConstant.DEVICEINVENTORY_SEARCH_URL,
                 CommonConstant.DISPACHERLOG_SEARCH_URL, CommonConstant.COUNT_OF_ISP_URL,
@@ -41,7 +41,8 @@ public class FilterConfig {
                 CommonConstant.INSTALLSITE_COUNT_URL, CommonConstant.ELECMOBILE_GETELECINFO_BY_PLATENO,
                 CommonConstant.ELECMOBILE_SEARCHALL_URL, CommonConstant.STOREHOUSE_SEARCH_URL,
                 CommonConstant.STOREHOUSE_ACTIVE_STATISTIC_URL, CommonConstant.HISTORY_ACTIVE_COUNT,
-                CommonConstant.INSTALLSITE_COUNTINSTALLED_URL);
+                CommonConstant.INSTALLSITE_COUNTINSTALLED_URL, CommonConstant.GROUP_SEARCH_URL,
+                CommonConstant.INSURANCE_310DEVICES_URL, CommonConstant.INSURANCE_SEARCH_URL);
         registration.setName("paramsFilter");
         registration.setOrder(Integer.MAX_VALUE - 1);
         return registration;

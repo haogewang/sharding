@@ -17,16 +17,20 @@ public interface GroupRepository extends JpaRepository<Tgroup,Integer>, JpaSpeci
 
 	@Modifying
 	@Query(value="delete from t_group where id=?1", nativeQuery = true)
-	public Integer deleteByGroupId(Integer id);
+	Integer deleteByGroupId(Integer id);
 
-	public Tgroup findByName(String name);
+	Tgroup findByName(String name);
 
-	@Query(value="select username, plate_number, imei from t_registration where imei in(?1)", nativeQuery = true)
-	public List<Map<String, Object>> getUserAndElecInfoByImeis(List<String> imeis);
+	@Query(value="select username, plate_number, imei from t_registration where imei in (?1)", nativeQuery = true)
+	List<Map<String, Object>> getUserAndElecInfoByImeis(List<String> imeis);
 
 	@Query(value="select id, name, parent_id, operator_id from t_group where if(?1 is null or ?1=0, parent_id is null, parent_id =?1)", nativeQuery = true)
 	List<Map<String, Object>>findNextGroups(Integer parentId);
 
 	@Query(value="select id, name, parent_id, operator_id from t_group where if(?1 is null or ?1=0, parent_id is null, parent_id =?1) and type = ?2", nativeQuery = true)
 	List<Map<String, Object>> findNextGroups(Integer parentId, Integer type);
+
+	@Query(value="select id, name, operator_id, parent_id, type from t_group where id =?1", nativeQuery = true)
+	List<Map<String, Object>> findByGroupId(Integer id);
+
 }

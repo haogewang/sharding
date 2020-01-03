@@ -33,18 +33,8 @@ public class ElecmobileUserServiceImpl implements ElecmobileUserService {
     }
 
     @Override
-    public List<Long> findNoTrackerElecIdByUserId(String userId) {
-        return electrombileUserRepository.findNoTrackerElecIdByUserId(userId);
-    }
-
-    @Override
     public List<TelectrombileUser> findByElecId(Long elecId) {
         return electrombileUserRepository.findByElectrombileId(elecId);
-    }
-
-    @Override
-    public TelectrombileUser findByNoTrackerElecId(Long noTrackerElecId) {
-        return electrombileUserRepository.findByNoTrackerElecId(noTrackerElecId);
     }
 
     @Override
@@ -69,19 +59,8 @@ public class ElecmobileUserServiceImpl implements ElecmobileUserService {
     }
 
     @Override
-    public Integer deleteByNoTrackerElecId(Long noTrackerElecId) {
-        return electrombileUserRepository.deleteByNoTrackerElecId(noTrackerElecId);
-    }
-
-    @Override
-    public List<String> findByElecIdIn(List<Long> ids) {
-        List<String> userIds = new ArrayList<>();
-        List<TelectrombileUser> elecUsers = electrombileUserRepository.findByElecIdIn(ids);
-        if (elecUsers != null && elecUsers.size() > 0) {
-            userIds = elecUsers.stream().map(TelectrombileUser::getUserId).collect(Collectors.toList());
-        }
-        log.info("userIds:" + JSONObject.toJSONString(userIds));
-        return userIds;
+    public TelectrombileUser findByUserIdAndElecId(String userId, Long elecId) {
+        return electrombileUserRepository.findByUserIdAndElecId(userId, elecId);
     }
 
 

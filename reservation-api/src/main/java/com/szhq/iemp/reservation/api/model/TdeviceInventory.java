@@ -28,7 +28,7 @@ public class TdeviceInventory extends BaseEntity {
 
     private static final long serialVersionUID = 1L;
 
-    @JsonSerialize(using = ToStringSerializer.class)
+//    @JsonSerialize(using = ToStringSerializer.class)
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -124,7 +124,7 @@ public class TdeviceInventory extends BaseEntity {
     @Column(columnDefinition = "varchar(20) COMMENT '设备厂商名称'")
     private String manufactorName;
 
-    private Integer realoperatorId;
+//    private Integer realoperatorId;
 
     private Boolean isActive = true;
 

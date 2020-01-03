@@ -1,20 +1,17 @@
 package com.szhq.iemp.device.controller;
 
 import com.alibaba.fastjson.JSONObject;
-import com.szhq.iemp.common.constant.CommonConstant;
 import com.szhq.iemp.common.constant.ResultConstant;
 import com.szhq.iemp.common.exception.NbiotException;
-import com.szhq.iemp.common.util.DecyptTokenUtil;
+import com.szhq.iemp.common.util.DencryptTokenUtil;
 import com.szhq.iemp.common.vo.MyPage;
 import com.szhq.iemp.common.vo.Result;
-import com.szhq.iemp.device.api.model.TpolicyInfo;
-import com.szhq.iemp.device.api.model.Tinsurance;
-import com.szhq.iemp.device.api.model.TuserInsurance;
-import com.szhq.iemp.device.api.service.InsuranceService;
-import com.szhq.iemp.device.api.service.PolicyInfoService;
-import com.szhq.iemp.device.api.service.UserInsuranceService;
+import com.szhq.iemp.device.api.model.*;
+import com.szhq.iemp.device.api.service.*;
+import com.szhq.iemp.device.api.vo.DeviceVo;
 import com.szhq.iemp.device.api.vo.PolicyInfo;
 import com.szhq.iemp.device.api.vo.PolicyName;
+import com.szhq.iemp.device.api.vo.query.DeviceQuery;
 import com.szhq.iemp.device.api.vo.query.PolicyQuery;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -42,6 +39,10 @@ public class InsuranceController {
     private PolicyInfoService policyInfoService;
     @Autowired
     private UserInsuranceService userInsuranceService;
+    @Autowired
+    private DeviceInventoryService deviceInventoryService;
+    @Autowired
+    private DeviceStoreHouseService storeHouseService;
 
     @ApiOperation(value = "列表", notes = "列表")
     @RequestMapping(value = "/search", method = RequestMethod.POST)
@@ -143,6 +144,13 @@ public class InsuranceController {
         return new Result(ResultConstant.SUCCESS, insurances);
     }
 
+    @ApiOperation(value = "根据保险公司Id查询全部查询保险列表", notes = "根据保险公司Id查询全部查询保险列表")
+    @RequestMapping(value = "/listByPolicyCode", method = RequestMethod.GET)
+    public Result listByPolicyCode(@RequestParam(value = "code")Integer id) {
+        List<Tinsurance> insurances = insuranceService.listByPolicyCode(id);
+        return new Result(ResultConstant.SUCCESS, insurances);
+    }
+
     @ApiOperation(value = "删除保险", notes = "删除保险")
     @RequestMapping(value = "/delete", method = RequestMethod.DELETE)
     public Result delete(@RequestParam("id") Integer id) {
@@ -157,7 +165,7 @@ public class InsuranceController {
         PolicyQuery query = new PolicyQuery();
         query.setStartTime(startTime);
         query.setEndTime(endTime);
-        List<Integer> operatorIds = DecyptTokenUtil.getOperatorIds(request);
+        List<Integer> operatorIds = DencryptTokenUtil.getOperatorIds(request);
         if (operatorIds != null && operatorIds.get(0) != 0) {
             query.setOperatorIdList(operatorIds);
         }
@@ -183,8 +191,64 @@ public class InsuranceController {
     @RequestMapping(value = "/page", method = RequestMethod.GET)
     public Result page(@RequestParam(value = "page") int page,
                        @RequestParam(value = "size") int size) {
-        Page<Tinsurance> tinsurances = insuranceService.page(page,size);
-        return new Result(ResultConstant.SUCCESS, tinsurances);
+        Page<Tinsurance> insurances = insuranceService.page(page,size);
+        return new Result(ResultConstant.SUCCESS, insurances);
+    }
+
+    @ApiOperation(value = "初始化保单信息", notes = "初始化保单信息")
+    @RequestMapping(value = "/initializePolicy", method = RequestMethod.POST)
+    public Result initializePolicy(@RequestParam(value = "imei") String imei) {
+        Long count = policyInfoService.initializePolicy(imei);
+        return new Result(ResultConstant.SUCCESS, count);
+    }
+
+    @ApiOperation(value = "新增保单信息（之前无保单属性）", notes = "新增保单信息")
+    @RequestMapping(value = "/addNewPolicy", method = RequestMethod.POST)
+    public Result addNewPolicy(@RequestBody TpolicyInfo entity) {
+        if(StringUtils.isEmpty(entity.getImei()) || entity.getNameCode() == null || StringUtils.isEmpty(entity.getName())){
+            log.error("wrong parameter.entity:{}", JSONObject.toJSONString(entity));
+            throw new NbiotException(400, "参数错误");
+        }
+        Long count = policyInfoService.addNewPolicy(entity);
+        return new Result(ResultConstant.SUCCESS, count);
+    }
+
+    @ApiOperation(value = "310所有设备列表", notes = "310所有设备列表")
+    @RequestMapping(value = "/310devices", method = RequestMethod.POST)
+    public Result devices(@RequestParam(value = "offset") Integer offset,
+                          @RequestParam(value = "pagesize") Integer limit,
+                          @RequestBody(required = false) DeviceQuery query) {
+        log.info("310devices query:{}", JSONObject.toJSONString(query));
+        Map<String, Object> result = new HashMap<>();
+        MyPage<DeviceVo> list = policyInfoService.devices(offset,limit, query);
+        result.put("policys", list.getContent());
+        result.put("total", list.getTotal());
+        return new Result(ResultConstant.SUCCESS, result);
+    }
+
+    @ApiOperation(value = "根据imeis查询保单须知", notes = "根据imeis查询保单须知")
+    @RequestMapping(value = "/findPolicyInstructionByImeis", method = RequestMethod.POST)
+    public Result findByPolicyId(@RequestBody List<String> imeis) {
+        List<String> urls = new ArrayList<>();
+        if(imeis == null || imeis.isEmpty()){
+            return new Result(ResultConstant.SUCCESS, urls);
+        }
+        List<TdeviceInventory> devices = deviceInventoryService.findByImeiIn(imeis);
+        if(devices != null && !devices.isEmpty()){
+            List<Integer> storehouseIds = devices.stream().map(TdeviceInventory::getStorehouseId).distinct().collect(Collectors.toList());
+            List<TdeviceStoreHouse> storeHouses = storeHouseService.findByIds(storehouseIds);
+            if(storeHouses != null && !storeHouses.isEmpty()){
+                urls = storeHouses.stream().map(TdeviceStoreHouse::getPolicyInstructionUrl).collect(Collectors.toList());
+            }
+        }
+        return new Result(ResultConstant.SUCCESS, urls);
+    }
+
+    @ApiOperation(value = "补充未填保单（测试）", notes = "补充未填保单（测试）")
+    @RequestMapping(value = "/setPolicy", method = RequestMethod.GET)
+    public Result setPolicy() {
+        Integer count = policyInfoService.getLostPolicys();
+        return new Result(ResultConstant.SUCCESS, count);
     }
 
 }

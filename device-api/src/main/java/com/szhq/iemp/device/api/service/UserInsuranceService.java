@@ -7,4 +7,6 @@ import java.util.List;
 public interface UserInsuranceService {
 
     List<TuserInsurance> findByPolicyId(Long policyId);
+
+    void deleteByPolicyIds(List<Long> ids);
 }

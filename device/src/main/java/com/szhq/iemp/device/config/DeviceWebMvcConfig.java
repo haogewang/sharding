@@ -14,12 +14,12 @@ public class DeviceWebMvcConfig extends WebMvcConfigurationSupport {
     @Override
     protected void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new ParameterValidInterceptor()).addPathPatterns(
-                CommonConstant.PUT_INTO_STORAGE_URL,
+                CommonConstant.PUT_INTO_STORAGE_URL, CommonConstant.PUT_INTO_STORAGE_BY_DELIVERSN_URL,
                 CommonConstant.DISPACHE_BY_IMEIS_URL, CommonConstant.DISPACHE_BY_BOXNUMBER_URL,
                 CommonConstant.BACK_BY_IMEIS_URL, CommonConstant.BACK_BY_BOXNUMBER_URL,
                 CommonConstant.VALID_IMEI_INFO_URL, CommonConstant.VALID_PUTSTORAGE_BY_BOXNUMBERS_URL,
-                CommonConstant.DISPATCH_TO_DEVICE_GROUP_URL, CommonConstant.DISPATCH_TO_ELEC_GROUP_URL,
-                CommonConstant.REMOVE_GROUP);
+                CommonConstant.DISPATCH_TO_DEVICE_GROUP_URL, CommonConstant.DISPATCH_TO_ELEC_GROUP_URL, CommonConstant.REMOVE_GROUP,
+                CommonConstant.DEVICE_ACTIVE_URL, CommonConstant.DEVICE_UN_ACTIVE_URL);
     }
 
 

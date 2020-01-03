@@ -1,10 +1,7 @@
 package com.szhq.iemp.reservation.api.service;
 
 import com.szhq.iemp.common.vo.MyPage;
-import com.szhq.iemp.reservation.api.model.Telectrmobile;
-import com.szhq.iemp.reservation.api.model.TelectrombileColor;
-import com.szhq.iemp.reservation.api.model.TelectrombileType;
-import com.szhq.iemp.reservation.api.model.TelectrombileVendor;
+import com.szhq.iemp.reservation.api.model.*;
 import com.szhq.iemp.reservation.api.vo.TelectrmobileVo;
 import com.szhq.iemp.reservation.api.vo.query.ElecmobileQuery;
 import com.szhq.iemp.reservation.api.vo.query.RegisterQuery;
@@ -20,10 +17,6 @@ public interface ElectrmobileService {
 	 * 模糊查询
 	 */
 	MyPage<Telectrmobile> findElecByCriteria(Integer offset, Integer limit, String sort, String order, ElecmobileQuery elecQuery);
-	/**
-	 *查询所有车(包括未绑定设备车辆)
-	 */
-	MyPage<TelectrmobileVo> findAllElecByCriteria(Integer offset, Integer limit, String sort, String order, RegisterQuery elecQuery);
 
 	/**
 	 * 根据车牌号查找电动车
@@ -165,6 +158,8 @@ public interface ElectrmobileService {
 	 */
 	void setViewDateByImei(String imei, Date date);
 
+	void setViewDateByImeis(List<String> imeis, Date date);
+
 	/**
 	 * 通过用户Id查找所有电动车(包括未绑定设备车)
 	 */
@@ -188,5 +183,6 @@ public interface ElectrmobileService {
 	 * 批量导入excel修改保单号
 	 */
 	Integer batchImportExcelUpdatePolicyNo(MultipartFile file);
+
 
 }

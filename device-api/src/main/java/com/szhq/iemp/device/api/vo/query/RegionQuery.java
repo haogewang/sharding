@@ -13,7 +13,10 @@ public class RegionQuery extends BaseQuery {
 
     private static final long serialVersionUID = 1L;
 
-    private Integer regionId;
+//    private Integer regionId;
+
+    //兼容老APP
+    private Integer addressRegionId;
 
     private List<Integer> regionIds;
 

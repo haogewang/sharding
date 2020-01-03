@@ -44,7 +44,7 @@ public class NbiotDeviceDataServiceImpl implements NbiotDeviceDataService {
 					.and(QueryBuilder.lte("ts", end)).orderBy(QueryBuilder.asc("ts"));
 			log.info("select:" + select);
 			List<NbiotDeviceData> nbiotTrackerData = cassandraTemplate.select(select, NbiotDeviceData.class);
-			if(nbiotTrackerData != null) {
+			if(nbiotTrackerData.size() > 0) {
 				redisUtil.set(CommonConstant.IEMP_NBIOT_TRACKER_IMEI  + imei + start + end, listTranscoder.serialize(nbiotTrackerData), 86400);
 			}
 			return nbiotTrackerData;

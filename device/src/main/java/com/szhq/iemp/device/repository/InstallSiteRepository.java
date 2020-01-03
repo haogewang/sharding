@@ -146,9 +146,31 @@ public interface InstallSiteRepository extends JpaRepository<TinstallSite, Integ
             " group by install_site_id", nativeQuery = true)
     List<Map<String, Object>> countAll(List<Integer> operatorIds);
 
-    @Query(value = "select TIS.install_site_id, TIS.name, U.id, U.name as username, count(R.imei) as installedCount from t_registration R left join user U on U.id=R.create_by inner join t_install_site TIS on U.install_site_id=TIS.install_site_id  where TIS.operator_id in (?1) and datediff(now(),R.create_time) <= ?2 group by R.create_by", nativeQuery = true)
-    List<Map<String, Object>> getSiteInstalledCount(List<Integer> operatorIds, Integer offset);
+//    @Query(value = "select TIS.install_site_id, TIS.name, U.id, U.name as username, count(R.imei) as installedCount from t_registration R left join user U on U.id=R.create_by inner join t_install_site TIS on U.install_site_id=TIS.install_site_id  where TIS.operator_id in (?1) and datediff(now(),R.create_time) <= ?2 group by R.create_by", nativeQuery = true)
+//    List<Map<String, Object>> getSiteInstalledCount(List<Integer> operatorIds, Integer offset);
 
-    @Query(value = "select TIS.install_site_id, TIS.name, U.id, U.name as username, count(R.imei) as installedCount from t_registration R left join user U on U.id=R.create_by inner join t_install_site TIS on U.install_site_id=TIS.install_site_id  where datediff(now(),R.create_time) <= ?1 group by R.create_by", nativeQuery = true)
-    List<Map<String, Object>> getSiteInstalledCount(Integer offset);
+    @Query(value = "select count(r.imei) as counts, count(n.imei) as onlinecount, r.create_by, u.name, date_format(r.create_time,'%Y-%m-%d') as create_time from t_registration r left join user u on r.create_by = u.id left join nbiot_device_rt_data n on r.imei=n.imei where r.imei is not null and u.id=?1 and datediff(now(),r.create_time) <= ?2 and r.install_site_id=?3 group by date_format(r.create_time,'%Y-%m-%d')", nativeQuery = true)
+    List<Map<String, Object>> getInstalledCountByUserId(String userId, Integer offset, Integer siteId);
+
+
+//    @Query(value = "select count(r.imei) as counts, r.create_by, u.name, date_format(r.create_time,'%Y-%m-%d') as create_time from t_registration r left join user u on r.create_by = u.id where r.imei is not null and r.create_time between ?1 and ?2 and r.create_by in (?3) group by r.create_by, date_format(r.create_time,'%Y-%m-%d')", nativeQuery = true)
+//    List<Map<String, Object>> getInstallWorkerCount(Date startTime, Date endTime, List<String> workerIds);
+
+    @Query(value = "select count(r.imei) as counts, r.create_by, u.name from t_registration r left join user u on r.create_by = u.id where r.imei is not null and r.create_time between ?1 and ?2 and r.create_by in (?3) group by r.create_by", nativeQuery = true)
+    List<Map<String, Object>> getInstallWorkerCount(Date startTime, Date endTime, List<String> workerIds);
+
+    @Query(value = "select count(r.imei) as counts, r.create_by, u.name from t_registration r left join user u on r.create_by = u.id where r.imei is not null and r.create_by in (?1) group by r.create_by", nativeQuery = true)
+    List<Map<String, Object>> getInstallWorkerCount(List<String> workerIds);
+
+    @Query(value = "select count(r.imei) as counts, r.create_by, u.name, u.login_name, u.contact_phone from t_registration r left join user u on r.create_by = u.id  where r.install_site_id=?1 group by r.create_by order by counts desc", nativeQuery = true)
+    List<Map<String, Object>> installedWorkerCountStatisticBySiteId(Integer installSiteId);
+
+    @Query(value = "select count(r.imei) as counts, r.create_by, u.name, u.login_name, u.contact_phone from t_registration r left join user u on r.create_by = u.id  where r.create_time between ?1 and ?2 and r.install_site_id=?3 group by r.create_by order by counts desc", nativeQuery = true)
+    List<Map<String, Object>> installedWorkerCountStatisticBySiteId(Date startTime, Date endTime, Integer installSiteId);
+
+    @Query(value = "select u.name,u.login_name, DATE_FORMAT(r.create_time,'%Y-%m-%d') as create_time, count(r.imei) as counts from t_registration r left join user u on r.create_by =u.id where r.install_site_id=?1 group by u.id, DATE_FORMAT(r.create_time,'%Y-%m-%d') order by counts desc", nativeQuery = true)
+    List<Map<String, Object>> getEveryDayWorkerInstalledCount(Integer installSiteId);
+
+    @Query(value = "select u.name,u.login_name, DATE_FORMAT(r.create_time,'%Y-%m-%d') as create_time, count(r.imei) as counts from t_registration r left join user u on r.create_by =u.id where r.install_site_id=?1 and r.create_time between ?2 and ?3 group by u.id,DATE_FORMAT(r.create_time,'%Y-%m-%d') order by counts desc", nativeQuery = true)
+    List<Map<String, Object>> getEveryDayWorkerInstalledCount(Integer installSiteId, Date startTime, Date endTime);
 }

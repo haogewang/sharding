@@ -1,7 +1,7 @@
 package com.szhq.iemp.device.service;
 
 import com.alibaba.dubbo.config.annotation.Reference;
-import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.szhq.iemp.common.constant.CommonConstant;
 import com.szhq.iemp.common.constant.enums.exception.DeviceExceptionEnum;
@@ -9,7 +9,7 @@ import com.szhq.iemp.common.constant.enums.exception.OperatorExceptionEnum;
 import com.szhq.iemp.common.constant.enums.exception.SiteExceptionEnum;
 import com.szhq.iemp.common.constant.enums.exception.StorehouseExceptionEnum;
 import com.szhq.iemp.common.exception.NbiotException;
-import com.szhq.iemp.common.util.DecyptTokenUtil;
+import com.szhq.iemp.common.util.DencryptTokenUtil;
 import com.szhq.iemp.common.util.SortUtil;
 import com.szhq.iemp.common.util.TimeStampUtil;
 import com.szhq.iemp.common.vo.MyPage;
@@ -23,6 +23,7 @@ import com.szhq.iemp.device.repository.DeviceInventoryRepository;
 import com.szhq.iemp.device.util.RedisUtil;
 import dot.server.api.DotService;
 import iemp.nui.api.ContainerService;
+import iemp.nui.common.model.Result;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
@@ -46,7 +47,6 @@ import javax.servlet.http.HttpServletRequest;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -70,8 +70,6 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
     private DotService dotService;
 
     @Autowired
-    private CommonService commonService;
-    @Autowired
     private InstallSiteService installSiteService;
     @Autowired
     private DeviceStoreHouseService storeHouseService;
@@ -94,6 +92,12 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
     @Autowired
     private UserService userService;
     @Autowired
+    private SaleRecordService saleRecordService;
+    @Autowired
+    private ActiveInfoService activeInfoService;
+    @Autowired
+    private UserInsuranceService userInsuranceService;
+    @Autowired
     private RedisUtil redisUtil;
 
     @Cacheable(unless="#result == null|| #result.getTotal() == 0")
@@ -111,6 +115,9 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
                     if (deviceQuery.getStartTime() != null && deviceQuery.getEndTime() != null) {
                         list.add(criteriaBuilder.between(root.get("dispatchTime").as(Date.class), deviceQuery.getStartTime(), deviceQuery.getEndTime()));
                     }
+                    if (deviceQuery.getDevstate() != null) {
+                        list.add(criteriaBuilder.equal(root.get("devstate").as(Integer.class), deviceQuery.getDevstate()));
+                    }
                     if (StringUtils.isNotEmpty(deviceQuery.getImei())) {
                         list.add(criteriaBuilder.equal(root.get("imei").as(String.class), deviceQuery.getImei()));
                     }
@@ -119,6 +126,9 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
                     }
                     if (deviceQuery.getInstallSiteId() != null) {
                         list.add(criteriaBuilder.equal(root.get("installSiteId").as(Integer.class), deviceQuery.getInstallSiteId()));
+                    }
+                    if (StringUtils.isNotEmpty(deviceQuery.getInstallSiteName())) {
+                        list.add(criteriaBuilder.like(root.get("installSiteName").as(String.class), "%" + deviceQuery.getInstallSiteName() + "%"));
                     }
                     //出库列表使用
                     if (deviceQuery.getStorehouseId() != null) {
@@ -133,8 +143,17 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
                     if (deviceQuery.getGroupId() != null) {
                         list.add(criteriaBuilder.equal(root.get("groupId").as(Integer.class), deviceQuery.getGroupId()));
                     }
+                    if (deviceQuery.getGroupIdList() != null) {
+                        list.add(root.get("groupId").as(Integer.class).in(deviceQuery.getGroupIdList()));
+                    }
                     if (deviceQuery.getStorehouseName() != null) {
                         list.add(criteriaBuilder.like(root.get("storehouseName").as(String.class), "%" + deviceQuery.getStorehouseName() + "%"));
+                    }
+                    if (deviceQuery.getOperatorName() != null) {
+                        list.add(criteriaBuilder.like(root.get("operatorName").as(String.class), "%" + deviceQuery.getOperatorName() + "%"));
+                    }
+                    if (deviceQuery.getPutStorageStartTime() != null && deviceQuery.getPutStorageEndTime() != null) {
+                        list.add(criteriaBuilder.between(root.get("putStorageTime").as(Date.class), deviceQuery.getPutStorageStartTime(), deviceQuery.getPutStorageEndTime()));
                     }
                 }
                 if (isDispacher != null && isDispacher) {
@@ -167,17 +186,17 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
 
     @Override
     public TdeviceInventory findByImei(String imei) {
-        String deviceString = (String) redisUtil.get(CommonConstant.DEVICE_IMEI + imei);
-        if (StringUtils.isEmpty(deviceString)) {
-            TdeviceInventory device = deviceInventoryRepository.findByImei(imei);
-            if (device != null) {
-                log.debug("");
-                redisUtil.set(CommonConstant.DEVICE_IMEI + imei, JSON.toJSONString(device), 5, TimeUnit.DAYS);
-            }
-            return device;
-        }
-        TdeviceInventory device = JSONObject.parseObject(deviceString, TdeviceInventory.class);
-        log.info("get device data from redis.imei:" + imei);
+//        String deviceString = (String) redisUtil.get(CommonConstant.DEVICE_IMEI + imei);
+//        if (deviceString == null || StringUtils.isEmpty(deviceString)) {
+//            TdeviceInventory device = deviceInventoryRepository.findByImei(imei);
+//            if (device != null) {
+//                redisUtil.set(CommonConstant.DEVICE_IMEI + imei, JSONObject.toJSONString(device), 3600*24);
+//            }
+//            return device;
+//        }
+//        log.info("get device data from redis. imei:" + imei);
+//        TdeviceInventory device = JSONObject.parseObject(deviceString, TdeviceInventory.class);
+        TdeviceInventory device = deviceInventoryRepository.findByImei(imei);
         return device;
     }
 
@@ -188,13 +207,26 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
 
     @Override
     public Integer deleteByImei(String imei) {
-        commonService.deleteRedisByKey(CommonConstant.DEVICE_IMEI + imei);
+//        commonService.deleteRedisByKey(CommonConstant.DEVICE_IMEI + imei);
+        deleteRedisDeviceImeiByImei(imei);
         return deviceInventoryRepository.deleteByImei(imei);
+    }
+
+    private void deleteRedisDeviceImeiByImei(String imei) {
+        if (redisUtil.hasKey(CommonConstant.DEVICE_IMEI + imei)) {
+            redisUtil.del(CommonConstant.DEVICE_IMEI + imei);
+            log.info("redis delete key [" + CommonConstant.DEVICE_IMEI + imei + "] success");
+        }
     }
 
     @Override
     public Integer putinStorageByBoxNumbers(List<String> boxNumbers, Integer storehouseId, HttpServletRequest request) {
-        String putStorageUserId = DecyptTokenUtil.getUserId(request);
+        List<String> boxNumberss = findByBoxNumberAndDevState(boxNumbers, 1);
+        if(boxNumberss != null && !boxNumberss.isEmpty()){
+            log.error("some devices already installed.");
+            throw new NbiotException(400024, "箱号下有已安装设备", JSONObject.toJSONString(boxNumberss));
+        }
+        String putStorageUserId = DencryptTokenUtil.getUserId(request);
         TdeviceStoreHouse deviceStoreHouse = storeHouseService.findById(storehouseId);
         if (deviceStoreHouse == null) {
             log.error("storeHouse is not exist, storeHouseId is:" + storehouseId);
@@ -234,8 +266,12 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
                     policyInfo.setName(PolicyNameEnum.getNameByCode(deviceStoreHouse.getPolicyNameCode()));
                     policyInfos.add(policyInfo);
                 }
+                Toperator operator = operatorService.findById(device.getOperatorId());
+                if(operator != null){
+                    device.setOperatorName(operator.getName());
+                }
                 results.add(device);
-                commonService.deleteRedisByKey(CommonConstant.DEVICE_IMEI + device.getImei());
+                deleteRedisDeviceImeiByImei(device.getImei());
             }
             saveAll(results);
             //写入保单表
@@ -246,6 +282,20 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
             broadcastTrdPlatform(boxNumbers);
         }
         return 0;
+    }
+
+    @Override
+    public Integer putInStorageByDeliverSns(List<String> deliverSns, Integer storehouseId, HttpServletRequest request) {
+        List<String> boxNumbers = findBoxNumbersByDeliverSns(deliverSns);
+        return putinStorageByBoxNumbers(boxNumbers,storehouseId, request);
+    }
+
+    private List<String> findBoxNumbersByDeliverSns(List<String> deliverSns) {
+        return deviceInventoryRepository.findBoxNumbersByDeliverSns(deliverSns);
+    }
+
+    private List<String> findByBoxNumberAndDevState(List<String> boxNumbers, int devstate) {
+        return deviceInventoryRepository.findByBoxNumberAndDevState(boxNumbers, devstate);
     }
 
     @Override
@@ -266,7 +316,7 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
             saveDeviceDispacheLog(list);
             deleteDeviceRedisData();
             for(String imei : imeis){
-                commonService.deleteRedisByKey(CommonConstant.DEVICE_IMEI + imei);
+                deleteRedisDeviceImeiByImei(imei);
             }
         }
         return 0;
@@ -334,19 +384,26 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
         Pageable pageable = PageRequest.of(offset, limit, sort);
         if (query != null && StringUtils.isNotEmpty(query.getInstallSiteName()) && query.getOperatorIdList() == null) {
             lists = deviceInventoryRepository.dispatchStatistic(query.getInstallSiteName(), query.getDevType(), pageable);
-        } else if (query != null && StringUtils.isNotEmpty(query.getInstallSiteName()) && query.getOperatorIdList() != null) {
-            lists = deviceInventoryRepository.dispatchStatistic(query.getInstallSiteName(), query.getOperatorIdList(),query.getDevType(), pageable);
-        } else if (query != null && query.getStartTime() != null && query.getEndTime() != null && query.getOperatorIdList() == null) {
+        }
+        else if (query != null && StringUtils.isNotEmpty(query.getInstallSiteName()) && query.getOperatorIdList() != null) {
+            lists = deviceInventoryRepository.dispatchStatistic(query.getInstallSiteName(), query.getOperatorIdList(), query.getDevType(), pageable);
+        }
+        else if (query != null && query.getStartTime() != null && query.getEndTime() != null && query.getOperatorIdList() == null) {
             lists = deviceInventoryRepository.dispatchStatistic(query.getStartTime(), query.getEndTime(), query.getDevType(),pageable);
-        } else if (query != null && query.getStartTime() != null && query.getEndTime() != null && query.getOperatorIdList() != null) {
+        }
+        else if (query != null && query.getStartTime() != null && query.getEndTime() != null && query.getOperatorIdList() != null) {
             lists = deviceInventoryRepository.dispatchStatistic(query.getStartTime(), query.getEndTime(), query.getOperatorIdList(), query.getDevType(),pageable);
-        } else if (query != null && StringUtils.isNotEmpty(query.getInstallSiteName()) && query.getStartTime() != null && query.getEndTime() != null && query.getOperatorIdList() == null) {
-            lists = deviceInventoryRepository.dispatchStatistic(query.getInstallSiteName(), query.getStartTime(), query.getEndTime(),query.getDevType(), pageable);
-        } else if (query != null && StringUtils.isNotEmpty(query.getInstallSiteName()) && query.getStartTime() != null && query.getEndTime() != null && query.getOperatorIdList() != null) {
+        }
+        else if (query != null && StringUtils.isNotEmpty(query.getInstallSiteName()) && query.getStartTime() != null && query.getEndTime() != null && query.getOperatorIdList() == null) {
+            lists = deviceInventoryRepository.dispatchStatistic(query.getInstallSiteName(), query.getStartTime(), query.getEndTime(), query.getDevType(), pageable);
+        }
+        else if (query != null && StringUtils.isNotEmpty(query.getInstallSiteName()) && query.getStartTime() != null && query.getEndTime() != null && query.getOperatorIdList() != null) {
             lists = deviceInventoryRepository.dispatchStatistic(query.getInstallSiteName(), query.getStartTime(), query.getEndTime(), query.getOperatorIdList(),query.getDevType(), pageable);
-        } else if (query != null && query.getOperatorIdList() != null) {
+        }
+        else if (query != null && query.getOperatorIdList() != null) {
             lists = deviceInventoryRepository.dispatchStatistic(query.getOperatorIdList(),query.getDevType(), pageable);
-        } else {
+        }
+        else {
             lists = deviceInventoryRepository.dispatchStatistic(query.getDevType(),pageable);
         }
         if (lists.size() > 0) {
@@ -451,8 +508,8 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
                     if (deviceQuery.getInstallSiteId() != null) {
                         list.add(criteriaBuilder.equal(root.get("installSiteId").as(Integer.class), deviceQuery.getInstallSiteId()));
                     }
-                    if (StringUtils.isNotEmpty(deviceQuery.getDevstate())) {
-                        list.add(criteriaBuilder.isNull(root.get("devstate")));
+                    if (deviceQuery.getDevstate() != null) {
+                        list.add(criteriaBuilder.equal(root.get("devstate").as(Integer.class), deviceQuery.getDevstate()));
                     }
                     if (StringUtils.isNotEmpty(deviceQuery.getIsp())) {
                         list.add(criteriaBuilder.equal(root.get("isp").as(String.class), deviceQuery.getIsp()));
@@ -463,10 +520,10 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
                     if (deviceQuery.getOperatorIdList() != null) {
                         list.add(root.get("operatorId").as(Integer.class).in(deviceQuery.getOperatorIdList()));
                     }
-                    if (!deviceQuery.getIsDispache()) {
+                    if (deviceQuery.getIsDispache() != null && !deviceQuery.getIsDispache()) {
                         list.add(criteriaBuilder.isNull(root.get("installSiteId")));
                     }
-                    if (deviceQuery.getIsDispache()) {
+                    if (deviceQuery.getIsDispache() != null && deviceQuery.getIsDispache()) {
                         list.add(criteriaBuilder.isNotNull(root.get("installSiteId")));
                     }
                 }
@@ -484,8 +541,12 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
 
     @Override
     public Integer countByGroupId(Integer groupId) {
-        Integer count = deviceInventoryRepository.countByGroupId(groupId);
-        return count;
+        return deviceInventoryRepository.countByGroupId(groupId);
+    }
+
+    @Override
+    public Integer countByGroupIds(List<Integer> groupIds) {
+        return deviceInventoryRepository.countByGroupIds(groupIds);
     }
 
     @Override
@@ -563,7 +624,7 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
         if(device != null){
             device.setIsActive(status);
             save(device);
-            redisUtil.del(CommonConstant.DEVICE_IMEI + imei);
+            deleteRedisDeviceImeiByImei(imei);
             return 1;
         }
         return 0;
@@ -573,7 +634,7 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
     public Integer updateActiveStateByImeis(List<String> imeis, Boolean status) {
         Integer count = deviceInventoryRepository.updateActiveStateByImeis(imeis, status);
         for(String imei : imeis){
-            redisUtil.del(CommonConstant.DEVICE_IMEI + imei);
+            deleteRedisDeviceImeiByImei(imei);
         }
         log.info("update active count:" + count);
         return count;
@@ -618,15 +679,7 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
                 deviceOfBox.setBoxDeviceNumber(imeiCount);
                 deviceOfBox.setBoxNumber(boxNumber);
                 deviceOfBox.setIsp(isp);
-                if (CommonConstant.CT.equalsIgnoreCase(isp)) {
-                    ctCounts.add(deviceOfBox);
-                }
-                else if (CommonConstant.CMCC.equalsIgnoreCase(isp)) {
-                    cmccCounts.add(deviceOfBox);
-                }
-                else if (CommonConstant.CUCC.equalsIgnoreCase(isp)) {
-                    cuccCounts.add(deviceOfBox);
-                }
+                setISPValue(ctCounts, cmccCounts, cuccCounts, deviceOfBox, isp);
             }
         }
         Map<String, List<DeviceOfBox>> map = new HashMap<>();
@@ -664,15 +717,7 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
                 deviceOfBox.setIsp(isp);
                 deviceOfBox.setBoxNumber(boxNumber);
                 deviceOfBox.setBoxDeviceNumber(totalCount);
-                if (CommonConstant.CT.equalsIgnoreCase(isp)) {
-                    ctCounts.add(deviceOfBox);
-                }
-                else if (CommonConstant.CMCC.equalsIgnoreCase(isp)) {
-                    cmccCounts.add(deviceOfBox);
-                }
-                else if (CommonConstant.CUCC.equalsIgnoreCase(isp)) {
-                    cuccCounts.add(deviceOfBox);
-                }
+                setISPValue(ctCounts, cmccCounts, cuccCounts, deviceOfBox, isp);
             }
         }
         Map<String, List<DeviceOfBox>> map = new HashMap<>();
@@ -689,14 +734,14 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
             log.error("boxNumber is not exist.boxNumber:" + boxNumber);
             throw new NbiotException(400006, DeviceExceptionEnum.E_00013.getMessage());
         }
-        List<String> ispList = devices.stream().map(TdeviceInventory::getIsp).collect(Collectors.toList());
+        List<String> ispList = devices.stream().map(TdeviceInventory::getIsp).distinct().collect(Collectors.toList());
         if(!ispList.isEmpty() && ispList.size() > 1){
             log.error("the boxNumber devices has different isp.please check.boxNumber:{},isp:{}", boxNumber, JSONObject.toJSONString(ispList));
             throw new NbiotException(400017, DeviceExceptionEnum.E_00031.getMessage() + JSONObject.toJSONString(ispList));
         }
         for (TdeviceInventory device : devices) {
             if (device.getInstallSiteId() != null) {
-                log.error("device has dispached.siteName:" + device.getInstallSiteName());
+                log.error("device has dispatched.siteName:" + device.getInstallSiteName());
                 throw new NbiotException(400010, DeviceExceptionEnum.E_00010.getMessage());
             }
             if (Objects.equals(1, device.getDevstate())) {
@@ -706,7 +751,7 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
         }
         DeviceOfBox deviceOfBox = new DeviceOfBox();
         deviceOfBox.setIsp(ispList.get(0));
-        deviceOfBox.setBoxDeviceNumber(Long.valueOf(devices.size()));
+        deviceOfBox.setBoxDeviceNumber((long) devices.size());
         deviceOfBox.setBoxNumber(boxNumber);
         return deviceOfBox;
     }
@@ -765,10 +810,14 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
         List<TdeviceInventory> devices = findByImeiIn(imeis);
         if (devices == null) {
             log.error("device is not exist, imeis is:" + JSONObject.toJSONString(imeis));
-            throw new NbiotException(DeviceExceptionEnum.E_0000.getCode(), DeviceExceptionEnum.E_0000.getMessage());
+            throw new NbiotException(400002, DeviceExceptionEnum.E_0000.getMessage());
         }
         List<TdeviceInventory> result = new ArrayList<>();
         for (TdeviceInventory device : devices) {
+            if(Objects.equals(1, device.getDevstate())){
+                log.error("device has installed.can not backoff.imei:" + device.getImei());
+                throw new NbiotException(400019, "", device.getImei());
+            }
             TinstallSite site = installSiteService.findById(device.getInstallSiteId());
             if (site != null) {
                 log.info("installSite is not null.imei:" + device.getImei());
@@ -782,7 +831,7 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
                     TdeviceStoreHouse parentStoreHouse = deviceStoreHouse.getParent();
                     if (parentStoreHouse == null) {
                         device.setStorehouseId(1);
-                        device.setInstallSiteName(storeHouseService.findById(1).getName());
+                        device.setStorehouseName(storeHouseService.findById(1).getName());
                     } else {
                         device.setStorehouseId(parentStoreHouse.getId());
                         device.setStorehouseName(parentStoreHouse.getName());
@@ -791,12 +840,88 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
             }
             result.add(device);
             saveBackOffDispacheLog(device, site);
-            commonService.deleteRedisByKey(CommonConstant.DEVICE_IMEI + device.getImei());
+            deleteRedisDeviceImeiByImei(device.getImei());
         }
         saveAll(result);
         deleteNoInstalledPolicyByImeis(imeis);
         deleteDeviceRedisData();
         return result.size();
+    }
+
+    @Override
+    public Integer backToHQByBoxNumber(List<String> boxNumbers) {
+        List<TdeviceInventory> devices = findByBoxNumbers(boxNumbers);
+        if(devices == null || devices.isEmpty()){
+            log.error("device is not found.");
+            throw new NbiotException(400002, "device is not found.");
+        }
+        List<Integer> devstates = devices.stream().map(TdeviceInventory::getDevstate).distinct().collect(Collectors.toList());
+        if(devstates.contains(1)){
+            log.error("devices has bound.can not backoff to HQ");
+            throw new NbiotException(400019, "devices has bound");
+        }
+        List<String> imeis = devices.stream().map(TdeviceInventory::getImei).distinct().collect(Collectors.toList());
+        List<TpolicyInfo> policys = policyInfoService.findByImeis(imeis);
+        if(policys != null && !policys.isEmpty()){
+            List<Long> ids = policys.stream().map(TpolicyInfo::getId).collect(Collectors.toList());
+            userInsuranceService.deleteByPolicyIds(ids);
+            policyInfoService.deleteByIds(ids);
+            log.info("delete policy,imei:" + JSONObject.toJSONString(imeis));
+        }
+        Integer count = updateStorehouseToHQByImeis(imeis);
+        deleteDeviceRedisData();
+        log.info("return to HQ count:" + count);
+        for(String boxNumber : boxNumbers){
+            JSONObject json = new JSONObject();
+            json.put("container_sn", boxNumber);
+            Result result = containerService.deviceUnreceive(json);
+            log.info("3rd deviceUnReceive json parameter:" + json + ",result:" + result);
+            if (Objects.equals(result.getCode(), 0)){
+                log.error("3rd deviceUnReceive error.result:" + result);
+                throw new NbiotException(400025, "通知第三方平台退库失败");
+            }
+        }
+        for(String imei : imeis){
+            deleteRedisDeviceImeiByImei(imei);
+        }
+        return boxNumbers.size();
+    }
+
+    @Override
+    public Integer backToHQByImeis(List<String> imeis) {
+        List<TdeviceInventory> devices = findByImeiIn(imeis);
+        if(devices == null || devices.isEmpty()){
+            log.error("device is not exist.");
+            throw new NbiotException(400002, "设备不存在");
+        }
+        List<Integer> devstates = devices.stream().map(TdeviceInventory::getDevstate).distinct().collect(Collectors.toList());
+        if(devstates.contains(1)){
+            throw new NbiotException(400011, "设备已安装");
+        }
+        List<Integer> siteIds = devices.stream().map(TdeviceInventory::getInstallSiteId).collect(Collectors.toList());
+        if(!siteIds.isEmpty()){
+            throw new NbiotException(400010, "设备已分配");
+        }
+        deleteNoInstalledPolicyByImeis(imeis);
+        JSONObject json = new JSONObject();
+        JSONArray array = new JSONArray();
+        for(String imei : imeis){
+            array.add(imei);
+            deleteByImei(imei);
+        }
+        json.put("imei_list", array);
+        log.info("device Undilver parameter:{}",json);
+        try {
+            containerService.deviceUndilver(json);
+        } catch (Exception e) {
+            log.error("e", e);
+            throw new NbiotException(503, "调用第三方接口失败");
+        }
+        return imeis.size();
+    }
+
+    private Integer updateStorehouseToHQByImeis(List<String> imeis) {
+        return deviceInventoryRepository.updateStorehouseToHQByImeis(imeis);
     }
 
     @Override
@@ -825,6 +950,7 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
             BeanUtils.copyProperties(defectiveInventory, tdeviceInventory);
             log.info("defectiveToNormal entity:" + JSONObject.toJSONString(tdeviceInventory));
             save(tdeviceInventory);
+            deleteRedisDeviceImeiByImei(imei);
             int i = defectiveInventoryService.deleteByImei(imei);
             log.info("delete defective imei:{},count:{}",imei, i);
             count ++;
@@ -834,8 +960,12 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
 
     @Override
     public List<Integer> getOperatorIdsByBoxNumbers(List<String> boxNumbers) {
-        List<Integer> operatorIds = deviceInventoryRepository.getOperatorIdsByBoxNumbers(boxNumbers);
-        return operatorIds;
+        return deviceInventoryRepository.getOperatorIdsByBoxNumbers(boxNumbers);
+    }
+
+    @Override
+    public List<Integer> getOperatorIdsByDeliverSns(List<String> deliverSns) {
+        return deviceInventoryRepository.getOperatorIdsByDeliverSns(deliverSns);
     }
 
     @Override
@@ -895,6 +1025,16 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
         }
         result = saveAll(result);
         return result.size();
+    }
+
+    private void setISPValue(List<DeviceOfBox> ctCounts, List<DeviceOfBox> cmccCounts, List<DeviceOfBox> cuccCounts, DeviceOfBox deviceOfBox, String isp) {
+        if (CommonConstant.CT.equalsIgnoreCase(isp)) {
+            ctCounts.add(deviceOfBox);
+        } else if (CommonConstant.CMCC.equalsIgnoreCase(isp)) {
+            cmccCounts.add(deviceOfBox);
+        } else if (CommonConstant.CUCC.equalsIgnoreCase(isp)) {
+            cuccCounts.add(deviceOfBox);
+        }
     }
 
     private void deleteNoInstalledPolicyByImeis(List<String> imeis) {
@@ -1033,6 +1173,7 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
         defectiveInventory.setOperatorName(device.getOperatorName());
         defectiveInventory.setSnNo(device.getSnNo());
         defectiveInventory.setSwVersion(device.getSwVersion());
+        defectiveInventory.setModelNo(device.getModelNo());
         defectiveInventory.setIotType(iotTypeService.findById(device.getIotTypeId()));
         defectiveInventory.setManufactor(manufactorService.findById(device.getManufactorId()));
         defectiveInventory.setRegion(regionService.findById(device.getRegionId()));
@@ -1100,18 +1241,18 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
                 Long totalCount = Long.valueOf(map.get("totalCount").toString());
                 String boxNumber = (String) map.get("box_number");
                 String isp = (String) map.get("isp");
+                String storehouseName = (String) map.get("storehouse_name");
+                //如果有值，说明该箱子下有设备已分配到安装点，不能显示
+                List<Integer> siteIds = deviceInventoryRepository.countInstallSiteIdByBoxNumber(boxNumber);
+                if(siteIds !=null && siteIds.size() > 0){
+                    log.info("boxnumber {} has devices dispatch to site.", boxNumber);
+                    continue;
+                }
                 deviceOfBox.setIsp(isp);
                 deviceOfBox.setBoxDeviceNumber(totalCount);
                 deviceOfBox.setBoxNumber(boxNumber);
-                if (CommonConstant.CT.equalsIgnoreCase(isp)) {
-                    CTcounts.add(deviceOfBox);
-                }
-                else if (CommonConstant.CMCC.equalsIgnoreCase(isp)) {
-                    CMCCcounts.add(deviceOfBox);
-                }
-                else if (CommonConstant.CUCC.equalsIgnoreCase(isp)) {
-                    CUCCcounts.add(deviceOfBox);
-                }
+                deviceOfBox.setStoreHouseName(storehouseName);
+                setISPValue(CTcounts, CMCCcounts, CUCCcounts, deviceOfBox, isp);
             }
         }
         Map<String, List<DeviceOfBox>> map = new HashMap<>();
@@ -1142,7 +1283,25 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
     }
 
     @Override
+    public Integer countAllStoreCountByOperatorIds(List<Integer> operatorIds) {
+        List<String> imeis = saleRecordService.findImeisByOperatorIds(operatorIds);
+        if(imeis != null && !imeis.isEmpty()){
+            return deviceInventoryRepository.countAllStoreCountByOperatorIds(operatorIds, imeis);
+        }
+        return deviceInventoryRepository.countAllStoreCountByOperatorIds(operatorIds);
+    }
+
+    @Override
+    public Integer countInstalledCountByOperatorIds(List<Integer> operatorIds) {
+        return deviceInventoryRepository.countInstalledCountByOperatorIds(operatorIds);
+    }
+
+    @Override
     public Integer countSellCountByOperatorIds(List<Integer> operatorIds) {
+        List<String> imeis = activeInfoService.findImeisByOperatorIds(operatorIds);
+        if(imeis != null && !imeis.isEmpty()){
+            return deviceInventoryRepository.countSellCountByOperatorIds(operatorIds, imeis);
+        }
         return deviceInventoryRepository.countSellCountByOperatorIds(operatorIds);
     }
 
@@ -1152,7 +1311,7 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
     }
 
     @Override
-    public List<TdeviceInventory> getBoxNumbersOfPutStorage(Integer page, Integer size, DeviceQuery deviceQuery) {
+    public Page<TdeviceInventory> getBoxNumbersOfPutStorage(Integer page, Integer size, DeviceQuery deviceQuery) {
         Sort sort = SortUtil.sort("id", "desc");
         Pageable pageable = PageRequest.of(page, size, sort);
         log.info("getBoxNumbersOfPutStorage:" + JSONObject.toJSONString(deviceQuery));
@@ -1217,6 +1376,63 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
         return result;
     }
 
+    @Override
+    public List<TdeviceInventory> getDeliverSns(List<Integer> operatorIds) {
+        List<TdeviceInventory> deviceList = new ArrayList<>();
+        log.info("operatorIds:" + JSONObject.toJSONString(operatorIds));
+        if(operatorIds == null || Objects.equals(0, operatorIds.get(0))){
+           List<Map<String, Object>> lists = deviceInventoryRepository.getDeliverSns();
+            if (setDeliverSnValue(deviceList, lists)) return deviceList;
+        }
+        List<Map<String, Object>> lists = deviceInventoryRepository.getDeliverSns(operatorIds);
+        if (setDeliverSnValue(deviceList, lists)) return deviceList;
+        return deviceList;
+    }
+
+    @Override
+    public List<TdeviceInventory> getInfoByImeis(List<String> imeis) {
+        return deviceInventoryRepository.findByImeiIn(imeis);
+    }
+
+    @Override
+    public List<TdeviceInventory> getAllInstalledDevices() {
+        return deviceInventoryRepository.getAllInstalledDevices();
+    }
+
+    private boolean setDeliverSnValue(List<TdeviceInventory> deviceList, List<Map<String, Object>> lists) {
+        if (lists != null && !lists.isEmpty()) {
+            for (Map<String, Object> map : lists) {
+                String deliverSn = String.valueOf(map.get("ddeliver_sn"));
+                if("null".equals(deliverSn)){
+                    continue;
+                }
+                Date createTime = null;
+                if (map.get("create_time") != null) {
+                    createTime = (Date) map.get("create_time");
+                }
+                String operatorName = String.valueOf(map.get("operator_name"));
+                String isp = String.valueOf(map.get("isp"));
+                String storehouseName = String.valueOf(map.get("storehouse_name"));
+                Integer devstate = Integer.valueOf(String.valueOf(map.get("devstate")));
+                TdeviceInventory device = new TdeviceInventory();
+                device.setOperatorName(operatorName);
+                device.setDeliverSn(deliverSn);
+                device.setStorehouseName(storehouseName);
+                device.setCreateTime(createTime);
+                device.setIsp(isp);
+                device.setDevstate(devstate);
+                List<String> boxNumbers = null;
+                if(StringUtils.isNotBlank(deliverSn)){
+                    boxNumbers = deviceInventoryRepository.findBoxNumbersByDeliverSns(Arrays.asList(deliverSn));
+                }
+                device.setBoxNumbers(boxNumbers);
+                deviceList.add(device);
+            }
+            return true;
+        }
+        return false;
+    }
+
     private void broadcastTrdPlatform(List<String> boxNumbers) {
         // 通知第三方平台入库
         JSONObject json = new JSONObject();
@@ -1226,7 +1442,7 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
         log.info("3rd deliverDone json parameter:" + json + ",result:" + result);
         if (Objects.equals(result.getCode(), 0)){
             log.error("3rd deliverDone error.result:" + result);
-            throw new NbiotException(500, "通知第三方平台入库失败");
+            throw new NbiotException(400025, "通知第三方平台入库失败");
         }
     }
 

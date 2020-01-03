@@ -42,6 +42,7 @@ import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @author wanghao
@@ -62,11 +63,14 @@ public class OperatorServiceImpl implements OperatorService {
     @Autowired
     private DeviceStoreHouseService deviceStoreHouseService;
     @Autowired
-    private AddressRegionService adressRegionService;
+    private AddressRegionService addressRegionService;
     @Autowired
     private DeviceInventoryService deviceInventoryService;
     @Autowired
     private CommonService commonService;
+    @Autowired
+    private UserService userService;
+
     @Autowired
     private RedisUtil redisUtil;
 
@@ -156,6 +160,21 @@ public class OperatorServiceImpl implements OperatorService {
         log.info("save operator success, id is:" + operatingCompany.getId());
         deleteRedisData(operatingCompany.getId());
         deleteRedisOperator();
+//        if(entity.getPlatenoPrefixIds() != null && !entity.getPlatenoPrefixIds().isEmpty()){
+//            for(Integer id : entity.getPlatenoPrefixIds()){
+//                TplatenoPrefix prefix = plateNoPrefixService.findById(id);
+//                if(prefix == null){
+//                    log.error("prefix not found.id:" + id);
+//                    throw new NbiotException(400, "参数错误");
+//                }
+//                ToperatorPlatenoPrefix platenoPrefix = new ToperatorPlatenoPrefix();
+//                platenoPrefix.setOperatorId(operatingCompany.getId());
+//                platenoPrefix.setPlatenoPrefix(prefix.getPlatenoPrefix());
+//                platenoPrefix.setPlatenoPrefixId(prefix.getId());
+//                operatorPlateNoPrefixService.save(platenoPrefix);
+//                log.info("save plateNo prefix success.body:" + JSONObject.toJSONString(prefix));
+//            }
+//        }
         return operatingCompany;
     }
 
@@ -177,7 +196,7 @@ public class OperatorServiceImpl implements OperatorService {
                 throw new NbiotException(600004, OperatorExceptionEnum.E_0005.getMessage());
             }
         }
-        if(operator.getParent() != null && Objects.equals(operator.getParent().getId(), entity.getId())) {
+        if(operator != null && operator.getParent() != null && Objects.equals(operator.getParent().getId(), entity.getId())) {
             throw new NbiotException(600005, OperatorExceptionEnum.E_0006.getMessage());
         }
         BeanUtils.copyProperties(entity, operator, PropertyUtil.getNullProperties(entity));
@@ -189,6 +208,19 @@ public class OperatorServiceImpl implements OperatorService {
         }
         deleteRedisData(entity.getId());
         deleteRedisOperator();
+//        if(entity.getPlatenoPrefixIds() != null && !entity.getPlatenoPrefixIds().isEmpty()){
+//            List<ToperatorPlatenoPrefix> platenoPrefixs = operatorPlateNoPrefixService.findNoSetByOperatorIdAndPlateNoPrefix(toperator.getId(), entity.getPlatenoPrefixIds());
+//            if(!platenoPrefixs.isEmpty()) {
+//                for (ToperatorPlatenoPrefix prefix : platenoPrefixs) {
+//                    ToperatorPlatenoPrefix prefixx = new ToperatorPlatenoPrefix();
+//                    prefixx.setOperatorId(toperator.getId());
+//                    prefixx.setPlatenoPrefix(prefix.getPlatenoPrefix());
+//                    prefixx.setPlatenoPrefixId(prefix.getPlatenoPrefixId());
+//                    operatorPlateNoPrefixService.save(prefixx);
+//                    log.info("save plateNo prefix.body:" + JSONObject.toJSONString(prefix));
+//                }
+//            }
+//        }
         return toperator;
     }
 
@@ -218,6 +250,8 @@ public class OperatorServiceImpl implements OperatorService {
         broadcastToThirdPlatformDelete(id);
         deleteRedisData(operator.getId());
         deleteRedisOperator();
+//        Integer count = operatorPlateNoPrefixService.deleteByOperatorId(id);
+//        log.info("delete operator-plateno-prefix.count:" + count);
         return i;
     }
 
@@ -252,6 +286,19 @@ public class OperatorServiceImpl implements OperatorService {
         Object o = listTranscoder.deserialize((String)datas);
         log.info("get operator ids data from redis. operator id:" + parentId);
         return (List<Integer>)o;
+    }
+
+    @Override
+    public List<Integer> findAllOperatorIdsByUserId(String userId) {
+        Tuser user = userService.findById(userId);
+        if(user == null){
+            return null;
+        }
+        if(Objects.equals(0, user.getOperatorId())){
+            List<Toperator> list = findAll();
+            return list.stream().map(Toperator::getId).collect(Collectors.toList());
+        }
+        return findAllChildIds(user.getOperatorId());
     }
 
     private void findById(Integer parentId, List<Integer> ids) {
@@ -356,7 +403,7 @@ public class OperatorServiceImpl implements OperatorService {
             log.error("operator region is null." + JSONObject.toJSONString(entity));
             throw new NbiotException(RegionExceptionEnum.E_0004.getCode(), RegionExceptionEnum.E_0004.getMessage());
         }
-        TaddressRegion addressRegion = adressRegionService.findById(entity.getRegion().getId());
+        TaddressRegion addressRegion = addressRegionService.findById(entity.getRegion().getId());
         if (addressRegion == null) {
             log.error("region is not exist. region id:" + entity.getRegion().getId());
             throw new NbiotException(RegionExceptionEnum.E_0003.getCode(), RegionExceptionEnum.E_0003.getMessage());

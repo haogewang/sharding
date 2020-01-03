@@ -13,21 +13,28 @@ spring:
     profiles:
         active: dev
     application:
-        name: aep-devicemanage
+        name: 设备管理
     main:
         allow-bean-definition-overriding: true
     servlet:
         multipart:
             enabled: true
     messages:
-        basename: i18n/register/register,i18n/electrmobile/electrmobile,i18n/common/common,
-                  i18n/device/device,i18n/reservation/reservation,i18n/user/user,i18n/operator/operator,i18n/group/group
+        basename: i18n/register/register,i18n/electrmobile/electrmobile,i18n/common/common,i18n/device/device,i18n/reservation/reservation,i18n/user/user,i18n/operator/operator,i18n/group/group,i18n/site/site
 management:
     endpoint:
         health:
             show-details: ALWAYS
+        logfile:
+            external-file: /data/iEMP/logs/aep-devicemanage/log_error.log
+        httptrace:
+            enabled: true
     endpoints:
         web:
             exposure:
-                exclude: configprops
                 include: '*'
+                exclude: configprops
+info:
+    version: @project.version@
+    groupId: @project.groupId@
+    artifactId: @project.artifactId@

@@ -19,9 +19,9 @@ import java.util.Map;
 
 @Service
 @Transactional
-public class OperatorServiceimpl implements OperatorService {
+public class OperatorServiceImpl implements OperatorService {
 
-    private static final Logger logger = LoggerFactory.getLogger(OperatorServiceimpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(OperatorServiceImpl.class);
 
     @Resource
     private OperatorRepository operatorRepository;
@@ -44,7 +44,7 @@ public class OperatorServiceimpl implements OperatorService {
             return ids;
         }
         Object o = listTranscoder.deserialize((String) datas);
-        logger.info("get redis operators data");
+        logger.info("get operators data from redis.id:" + parentId);
         return (List<Integer>) o;
     }
 
@@ -53,6 +53,7 @@ public class OperatorServiceimpl implements OperatorService {
         if (lists != null && lists.size() > 0) {
             for (Map<String, Object> map : lists) {
                 long id = Long.valueOf(String.valueOf(map.get("id")));
+                logger.debug("");
                 int oId = Integer.valueOf(String.valueOf(id));
                 ids.add(oId);
                 findById(oId, ids);

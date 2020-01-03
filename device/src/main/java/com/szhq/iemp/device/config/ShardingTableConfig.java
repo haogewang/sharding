@@ -27,8 +27,8 @@ public class ShardingTableConfig implements PreciseShardingAlgorithm<String>, Ra
      */
     @Override
     public String doSharding(Collection<String> availableTargetNames, PreciseShardingValue<String> shardingValue) {
-        log.info("PreciseShard-availableTargetNames:" + JSONObject.toJSONString(availableTargetNames));
-        log.info("PreciseShard-shardingValue:" + JSONObject.toJSONString(shardingValue));
+//        log.info("PreciseShard-availableTargetNames:" + JSONObject.toJSONString(availableTargetNames));
+//        log.info("PreciseShard-shardingValue:" + JSONObject.toJSONString(shardingValue));
         for (String tableName : availableTargetNames) {
             if ("imei".equalsIgnoreCase(shardingValue.getColumnName())) {
                 return tableName;

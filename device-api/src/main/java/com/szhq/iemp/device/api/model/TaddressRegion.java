@@ -34,7 +34,10 @@ public class TaddressRegion extends BaseEntity {
 	@OneToOne(fetch = FetchType.LAZY, cascade= {CascadeType.REFRESH})
 	@JoinColumn(columnDefinition="INT COMMENT '从属区域Id' ", name = "parent_id", referencedColumnName = "id" ,foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT))
 	@NotFound(action= NotFoundAction.IGNORE)
-	private TaddressRegion parent;
+	private TaddressRegion region;
+
+//	@Transient
+//	private TaddressRegion parent;
 
 
 }

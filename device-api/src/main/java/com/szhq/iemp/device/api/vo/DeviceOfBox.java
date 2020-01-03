@@ -35,6 +35,10 @@ public class DeviceOfBox implements Serializable {
      */
     private Long storeHouseId;
     /**
+     * 仓库名
+     */
+    private String storeHouseName;
+    /**
      * 箱号
      */
     private String boxNumber;

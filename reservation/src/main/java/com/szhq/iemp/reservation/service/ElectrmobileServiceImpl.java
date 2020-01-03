@@ -49,6 +49,7 @@ import javax.persistence.criteria.Root;
 import javax.transaction.Transactional;
 import java.io.InputStream;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -74,7 +75,10 @@ public class ElectrmobileServiceImpl implements ElectrmobileService {
     @Autowired
     private UserService userService;
     @Autowired
-    private NoTrackerElecmobileService noTrackerElecmobileService;
+    private OperatorService operatorService;
+    @Autowired
+    private RegistrationService registrationService;
+
     @Autowired
     @Qualifier("primaryRedisUtil")
     private RedisUtil redisUtil;
@@ -114,17 +118,15 @@ public class ElectrmobileServiceImpl implements ElectrmobileService {
                     if (StringUtils.isNotEmpty(elecQuery.getModelNo())) {
                         list.add(criteriaBuilder.equal(root.get("modelNo").as(String.class), elecQuery.getModelNo()));
                     }
+                    if (StringUtils.isNotEmpty(elecQuery.getUserId())) {
+                        list.add(criteriaBuilder.equal(root.get("ownerId").as(String.class), elecQuery.getUserId()));
+                    }
                 }
                 Predicate[] p = new Predicate[list.size()];
                 return criteriaBuilder.and(list.toArray(p));
             }
         }, pageable);
         return new MyPage<Telectrmobile>(pages.getContent(), pages.getTotalElements(), pages.getNumber(), pages.getSize());
-    }
-
-    @Override
-    public MyPage<TelectrmobileVo> findAllElecByCriteria(Integer offset, Integer limit, String sort, String order, RegisterQuery elecQuery) {
-        return null;
     }
 
     @Override
@@ -153,16 +155,17 @@ public class ElectrmobileServiceImpl implements ElectrmobileService {
 
     @Override
     public Telectrmobile findByImei(String imei) {
-        String elecString = (String) redisUtil.get(CommonConstant.ELEC_IMEI + imei);
-        if (StringUtils.isEmpty(elecString)) {
-            Telectrmobile electrombile = electrombileRepository.findByImei(imei);
-            if (electrombile != null) {
-                redisUtil.set(CommonConstant.ELEC_IMEI + imei, JSONObject.toJSONString(electrombile));
-            }
-            return electrombile;
-        }
-        logger.info("get elec data from redis by imei.imei:" + imei);
-        Telectrmobile electrombile = JSONObject.parseObject(elecString, Telectrmobile.class);
+//        String elecString = (String) redisUtil.get(CommonConstant.ELEC_IMEI + imei);
+//        if (StringUtils.isEmpty(elecString)) {
+//            Telectrmobile electrombile = electrombileRepository.findByImei(imei);
+//            if (electrombile != null) {
+//                redisUtil.set(CommonConstant.ELEC_IMEI + imei, JSONObject.toJSONString(electrombile));
+//            }
+//            return electrombile;
+//        }
+//        logger.info("get elec data from redis by imei.imei:" + imei);
+//        Telectrmobile electrombile = JSONObject.parseObject(elecString, Telectrmobile.class);
+        Telectrmobile electrombile = electrombileRepository.findByImei(imei);
         return electrombile;
     }
 
@@ -172,7 +175,7 @@ public class ElectrmobileServiceImpl implements ElectrmobileService {
         if (StringUtils.isEmpty(elecString)) {
             Telectrmobile elec = electrombileRepository.findByPlateNumber(plateNumber);
             if (elec != null) {
-                redisUtil.set(CommonConstant.ELEC_PLATENUMBER + plateNumber, JSONObject.toJSONString(elec));
+                redisUtil.set(CommonConstant.ELEC_PLATENUMBER + plateNumber, JSONObject.toJSONString(elec), 1, TimeUnit.DAYS);
                 return elec;
             }
         }
@@ -225,61 +228,15 @@ public class ElectrmobileServiceImpl implements ElectrmobileService {
 
     @Override
     public List<Telectrmobile> getAllElecmobileByUserId(String userId) {
-        List<TelectrombileUser> elecUserList = elecmobileUserService.findByUserId(userId);
-        List<Telectrmobile> result = new ArrayList<>();
-        if (elecUserList != null && elecUserList.size() > 0) {
-            List<Long> ids = elecUserList.stream().map(TelectrombileUser::getElectrombileId).collect(Collectors.toList());
-            Object elecString = redisUtil.get(CommonConstant.ELECALL_ID_KEY + JSONObject.toJSONString(ids));
-            ListTranscoder<Telectrmobile> listTranscoder = new ListTranscoder<Telectrmobile>();
-            if (elecString == null) {
-                result = electrombileRepository.findAllElecsByElecIdIn(ids);
-                redisUtil.set(CommonConstant.ELECALL_ID_KEY + JSONObject.toJSONString(ids), listTranscoder.serialize(result), 86400 * 5);
-                return result;
-            }
-            Object o = listTranscoder.deserialize((String) elecString);
-            logger.info("get elec data from redis by userId.userId:" + userId);
-            return (List<Telectrmobile>) o;
-        }
-        return result;
-    }
-
-    @Override
-    public List<Telectrmobile> getAllElecmobileByUserIdAndType(String userId, String type) {
-        List<Telectrmobile> result = new ArrayList<>();
-        List<TelectrombileUser> elecUserList = elecmobileUserService.findByUserId(userId);
-        if (elecUserList != null && elecUserList.size() > 0) {
-            List<Long> ids = elecUserList.stream().map(TelectrombileUser::getElectrombileId).collect(Collectors.toList());
-            result = electrombileRepository.findAllElectrombilesByElecIdInAndType(ids, type);
-        }
-        return result;
-    }
-
-    @Override
-    public List<Telectrmobile> findAllElecByUserId(String userId, String type, List<Integer> operatorIds, Boolean isApp) {
         List<Telectrmobile> list = new ArrayList<>();
-        List<TelectrombileUser> elecUsers = null;
-        logger.info("operatorIds:" + JSONObject.toJSONString(operatorIds));
-        if (operatorIds != null && operatorIds.get(0) != 0 && isApp == false) {
-            elecUsers = elecmobileUserService.findByUserIdAndOperatorIds(userId, operatorIds);
-        } else {
-            elecUsers = elecmobileUserService.findByUserId(userId);
-        }
-        if (elecUsers != null && !elecUsers.isEmpty()) {
-            List<Long> ids = elecUsers.stream().filter(x -> x != null).map(TelectrombileUser::getElectrombileId).collect(Collectors.toList());
-            if (ids != null && ids.size() > 0) {
-                List<Telectrmobile> elecs = electrombileRepository.findAllElectrombilesByElecIdInAndType(ids, type);
-                if (elecs != null && !elecs.isEmpty()) {
-                    list.addAll(elecs);
-                }
-            }
-            for (TelectrombileUser electrombileUser : elecUsers) {
-                if (electrombileUser.getNoTrackerElecId() != null) {
-                    Telectrmobile telectrombile = new Telectrmobile();
-                    TnoTrackerElec tnoTrackerElec = noTrackerElecmobileService.findById(electrombileUser.getNoTrackerElecId());
-                    BeanUtils.copyProperties(tnoTrackerElec, telectrombile, PropertyUtil.getNullProperties(tnoTrackerElec));
-                    telectrombile.setElectrmobileId(tnoTrackerElec.getId());
-                    telectrombile.setOperatorId(electrombileUser.getOperatorId());
-                    list.add(telectrombile);
+        List<Tregistration> registerList = registrationService.findByUserId(userId);
+        Tuser user = userService.findById(userId);
+        if(registerList != null && !registerList.isEmpty()){
+            List<String> imeis = registerList.stream().map(Tregistration::getImei).filter(x -> x != null).collect(Collectors.toList());
+            if(!imeis.isEmpty()){
+                List<Telectrmobile> result = findByImeis(imeis);
+                if(!result.isEmpty()){
+                    setDeviceAndUserInfoToElec(list, user, result);
                 }
             }
         }
@@ -287,49 +244,99 @@ public class ElectrmobileServiceImpl implements ElectrmobileService {
     }
 
     @Override
-    public Telectrmobile getElecAndUserInfoByPlateNo(ElecmobileQuery elecQuery) {
-        if(StringUtils.isEmpty(elecQuery.getPlateNumber())){
-            //ElectrombileExceptionEnum.E_0004
-            throw new NbiotException(3000002, "");
+    public List<Telectrmobile> getAllElecmobileByUserIdAndType(String userId, String type) {
+        List<Telectrmobile> result = new ArrayList<>();
+        List<Tregistration> registerList = registrationService.findByUserId(userId);
+        if(registerList != null && !registerList.isEmpty()){
+            Tuser user = userService.findById(userId);
+            List<String> imeis = registerList.stream().map(Tregistration::getImei).filter(x -> x != null).collect(Collectors.toList());
+            if(!imeis.isEmpty()){
+                List<Telectrmobile> list = findByImeisAndType(imeis, type);
+                if(!list.isEmpty()){
+                    setDeviceAndUserInfoToElec(result, user, list);
+                }
+            }
         }
-        logger.info("elecQuery PlateNo:" + JSONObject.toJSONString(elecQuery));
-        String plateNo = elecQuery.getPlateNumber();
-        if (elecQuery.getOperatorIdList() != null) {
-            Telectrmobile elec = electrombileRepository.findByPlateNumberAndOperatorIdsIn(plateNo, elecQuery.getOperatorIdList());
-            if (elec == null) {
-                TnoTrackerElec tnoTrackerElec = noTrackerElecmobileService.findByPlateNumberAndOperatorIdsIn(plateNo, elecQuery.getOperatorIdList());
-                if (tnoTrackerElec == null) {
-                    logger.error("plateNo is not exist." + plateNo);
-                    //ElectrombileExceptionEnum.E_0006
-                    throw new NbiotException(3000004, "");
-                }
-                Telectrmobile telec = new Telectrmobile();
-                BeanUtils.copyProperties(tnoTrackerElec, telec, PropertyUtil.getNullProperties(tnoTrackerElec));
-                return telec;
-            } else {
-                return elec;
+        return result;
+    }
+
+    @Override
+    public List<Telectrmobile> findAllElecByUserId(String userId, String type, List<Integer> operatorIds, Boolean isApp) {
+        List<Telectrmobile> list = new ArrayList<>();
+        logger.info("isApp:" + isApp + ".operatorIds:" + JSONObject.toJSONString(operatorIds));
+        Tuser user = userService.findById(userId);
+        if (isApp) {
+            List<Telectrmobile> electrmobiles = findByUserIdAndType(userId, type);
+            setDeviceAndUserInfoToElec(list, user, electrmobiles);
+        }
+        else {
+            List<TelectrombileUser> electrombileUsers = elecmobileUserService.findByUserIdAndOperatorIds(userId, operatorIds);
+            if(electrombileUsers != null && !electrombileUsers.isEmpty()){
+                List<Long> elecIds = electrombileUsers.stream().map(TelectrombileUser::getElectrombileId).collect(Collectors.toList());
+                List<Telectrmobile> electrmobiles = electrombileRepository.findAllElecsByElecIdIn(elecIds);
+                setDeviceAndUserInfoToElec(list, user, electrmobiles);
             }
-        } else {
-            Telectrmobile electrombile = findByPlateNumber(plateNo);
-            if (electrombile == null) {
-                TnoTrackerElec tnoTrackerElec = noTrackerElecmobileService.findByPlateNumber(plateNo);
-                if (tnoTrackerElec == null) {
-                    logger.error("plateNo is not exist." + plateNo);
-                    throw new NbiotException(3000004, "");
+        }
+        return list;
+    }
+
+    private void setDeviceAndUserInfoToElec(List<Telectrmobile> list, Tuser user, List<Telectrmobile> electrmobiles) {
+        if (electrmobiles != null && !electrmobiles.isEmpty()) {
+            for (Telectrmobile elec : electrmobiles) {
+                TdeviceInventory device = deviceInventoryService.findByImei(elec.getImei());
+                elec.setDeviceInventory(device);
+                elec.setUser(user);
+                if(elec.getOperatorId() != null){
+                    Toperator toperator = operatorService.findById(elec.getOperatorId());
+                    if (toperator != null) {
+                        elec.setAdressRegion(toperator.getRegion());
+                    }
                 }
-                TelectrombileUser electrombileUser = elecmobileUserService.findByNoTrackerElecId(tnoTrackerElec.getId());
-                if (electrombileUser != null) {
-                    Tuser user = userService.findById(electrombileUser.getUserId());
-                    Telectrmobile elec = new Telectrmobile();
-                    BeanUtils.copyProperties(tnoTrackerElec, elec, PropertyUtil.getNullProperties(tnoTrackerElec));
-                    elec.setUser(user);
-                    return elec;
-                }
-            } else {
-                return electrombile;
+                list.add(elec);
             }
+        }
+    }
+
+    private List<Telectrmobile> findByImeis(List<String> imeis) {
+        return electrombileRepository.findByImeiIn(imeis);
+    }
+
+    private List<Telectrmobile> findByImeisAndType(List<String> imeis, String type) {
+        return electrombileRepository.findAllElectrombilesByImeisInAndType(imeis, type);
+    }
+
+    private List<Telectrmobile> findByUserIdAndType(String userId, String type) {
+        List<TelectrombileUser> electrombileUsers = elecmobileUserService.findByUserId(userId);
+        if(electrombileUsers != null && !electrombileUsers.isEmpty()){
+            List<Long> elecIds = electrombileUsers.stream().map(TelectrombileUser::getElectrombileId).collect(Collectors.toList());
+            return electrombileRepository.findAllElectrombilesByElecIdInAndType(elecIds, type);
         }
         return null;
+    }
+
+    @Override
+    public Telectrmobile getElecAndUserInfoByPlateNo(ElecmobileQuery elecQuery) {
+        String plateNo = elecQuery.getPlateNumber();
+        if(StringUtils.isEmpty(plateNo)){
+            throw new NbiotException(3000002, "车牌号不能为空");
+        }
+        Telectrmobile electrombile = null;
+        logger.info("elecQuery plateNo:" + JSONObject.toJSONString(elecQuery));
+        if (elecQuery.getOperatorIdList() != null) {
+            electrombile = electrombileRepository.findByPlateNumberAndOperatorIdsIn(plateNo, elecQuery.getOperatorIdList());
+            if(electrombile != null){
+                electrombile.setUser(userService.findById(electrombile.getOwnerId()));
+                electrombile.setDeviceInventory(deviceInventoryService.findByImei(electrombile.getImei()));
+            }
+        }
+        else {
+            electrombile = findByPlateNumber(plateNo);
+            if(electrombile != null){
+                electrombile.setUser(userService.findById(electrombile.getOwnerId()));
+                electrombile.setDeviceInventory(deviceInventoryService.findByImei(electrombile.getImei()));
+            }
+        }
+        return electrombile;
     }
 
     @Override
@@ -598,7 +605,18 @@ public class ElectrmobileServiceImpl implements ElectrmobileService {
             electrombileRepository.updateViewDate(date, elecmobile.getElectrmobileId());
             delRedisKeyByElec(elecmobile);
         }else {
-            throw new NbiotException(DeviceExceptionEnum.E_0000.getCode(), DeviceExceptionEnum.E_0000.getMessage());
+            throw new NbiotException(400002, DeviceExceptionEnum.E_0000.getMessage());
+        }
+    }
+
+    @Override
+    public void setViewDateByImeis(List<String> imeis, Date date) {
+        if(imeis != null && !imeis.isEmpty()){
+//            for(String imei : imeis){
+//                setViewDateByImei(imei, date);
+//            }
+           Integer count =  electrombileRepository.updateViewDateByImeis(imeis, date);
+           logger.info("update view date count:" + count);
         }
     }
 

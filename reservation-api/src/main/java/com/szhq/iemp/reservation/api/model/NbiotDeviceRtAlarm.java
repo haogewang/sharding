@@ -8,6 +8,7 @@ import java.util.Date;
 
 @Entity(name="nbiot_device_rt_alarm")
 @Data
+
 public class NbiotDeviceRtAlarm implements Serializable{
 
 	private static final long serialVersionUID = 1L;
@@ -31,7 +32,7 @@ public class NbiotDeviceRtAlarm implements Serializable{
 
 	private Date createTime;
 
-	private int operatorId;
+	private Integer operatorId;
 	//报警时电池电压
 	private double deviceVolt;
 	// 紧急报警事件

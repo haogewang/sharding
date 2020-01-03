@@ -2,6 +2,7 @@ package com.szhq.iemp.device.controller;
 
 import com.alibaba.fastjson.JSONObject;
 import com.szhq.iemp.common.constant.ResultConstant;
+import com.szhq.iemp.common.exception.NbiotException;
 import com.szhq.iemp.common.vo.MyPage;
 import com.szhq.iemp.common.vo.Result;
 import com.szhq.iemp.device.api.model.TinstallSite;
@@ -20,7 +21,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
-import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 import java.text.SimpleDateFormat;
@@ -85,14 +85,14 @@ public class InstallSiteController {
         //已安装设备
         Long installedCount = electrombileService.countByCriteria(deviceQuery);
         //全部设备
-        if (deviceQuery == null) {
-            deviceQuery = new DeviceQuery();
-            deviceQuery.setIsDispache(true);
-        }
-        Long dispacheCount = deviceInventoryService.countByCriteria(deviceQuery);
-        Long unUsedCount = dispacheCount - installedCount;
+//        if (deviceQuery == null) {
+//            deviceQuery = new DeviceQuery();
+//            deviceQuery.setIsDispache(true);
+//        }
+        Long dispatchCount = deviceInventoryService.countByCriteria(deviceQuery);
+        Long unUsedCount = dispatchCount - installedCount;
         JSONObject json = new JSONObject();
-        json.put("allCount", dispacheCount);
+        json.put("allCount", dispatchCount);
         json.put("installedCount", installedCount);
         json.put("unInstalledCount", unUsedCount);
         return new Result(ResultConstant.SUCCESS, json);
@@ -114,7 +114,7 @@ public class InstallSiteController {
     @RequestMapping(value = "/add", method = RequestMethod.POST)
     public Result add(@Valid @RequestBody TinstallSite entity, BindingResult result) {
         logger.info("add site entity:" + entity);
-        if (result.hasErrors()) {
+        if (result.hasErrors() && result.getFieldError() != null) {
             logger.error("add site error." + result.getFieldError().getDefaultMessage());
             return new Result(ResultConstant.FAILED, result.getFieldError().getDefaultMessage());
         }
@@ -176,6 +176,10 @@ public class InstallSiteController {
     public Result findByCityId(@RequestParam("id") String id,
                                @RequestParam(value = "status", defaultValue = "true") Boolean status) {
         List<TinstallSite> sites = installSiteService.getSitesByCityId(Integer.valueOf(id), status);
+        if(sites == null || sites.isEmpty()){
+            sites = installSiteService.getSitesByRegionId(Integer.valueOf(id), status);
+            return new Result(ResultConstant.SUCCESS, sites);
+        }
         return new Result(ResultConstant.SUCCESS, sites);
     }
 
@@ -217,10 +221,30 @@ public class InstallSiteController {
         return new Result(ResultConstant.SUCCESS, count);
     }
 
-    @ApiOperation(value = "统计安装点每个安装人员安装设备数量", notes = "统计安装点每个安装人员安装设备数量")
-    @RequestMapping(value = "/countInstalled", method = RequestMethod.POST)
+    @ApiOperation(value = "统计安装点每个安装人员每天安装设备数量", notes = "统计安装点每个安装人员每天安装设备数量")
+    @RequestMapping(value = "/countInstalledByUserId", method = RequestMethod.GET)
+    public Result countInstall(@RequestParam("userId") String userId,
+                               @RequestParam("siteId") Integer siteId,
+                               @RequestParam(value = "offset", defaultValue = "7") Integer offset) {
+        List<InstallSiteAndWorker> result = installSiteService.getInstalledCountByUserId(userId, siteId, offset);
+        return new Result(ResultConstant.SUCCESS, result);
+    }
+
+    @ApiOperation(value = "统计安装点安装人员安装设备数量", notes = "统计安装点安装人员安装设备数量")
+    @RequestMapping(value = "/countInstalledBySiteId", method = RequestMethod.POST)
     public Result countInstall(@RequestBody InstallSiteQuery query) {
-        List<InstallSiteAndWorker> result = installSiteService.getSiteInstalledCount(query.getOperatorIdList(), query.getOffset());
+        if(query.getInstallSiteId() == null){
+            logger.error("wrong parameter.");
+            throw new NbiotException(400, "参数错误");
+        }
+        List<InstallSiteAndWorker> result = null;
+//        if(query.getStartTime() != null && query.getEndTime() != null){
+//            result = installSiteService.getInstalledWorkerCountBySiteId(query.getStartTime(),query.getEndTime(), query.getInstallSiteId());
+//        }
+//        else {
+//            result = installSiteService.getInstalledWorkerCountBySiteId(query.getInstallSiteId());
+//        }
+        result = installSiteService.installedWorkerCountStatisticBySiteId(query.getStartTime(),query.getEndTime(),query.getInstallSiteId());
         return new Result(ResultConstant.SUCCESS, result);
     }
 
@@ -230,5 +254,19 @@ public class InstallSiteController {
         installSiteService.export(siteId, response);
         return new Result(ResultConstant.SUCCESS, "");
     }
+
+    @ApiOperation(value = "安装统计导出", notes = "安装统计导出")
+    @RequestMapping(value = "/exportWorkerInstalledInfo", method = RequestMethod.POST)
+    public Result exportWorkerInstalledInfo(@RequestParam("startTime") Date startTime,
+                                            @RequestParam("endTime") Date endTime,
+                                            @RequestParam("siteId") Integer siteId, HttpServletResponse response) {
+        InstallSiteQuery query = new InstallSiteQuery();
+        query.setInstallSiteId(siteId);
+        query.setStartTime(startTime);
+        query.setEndTime(endTime);
+        installSiteService.exportWorkerInstalledInfo(query, response);
+        return new Result(ResultConstant.SUCCESS, "");
+    }
+
 
 }

@@ -31,10 +31,10 @@ public class Tuser implements Serializable {
     @Column(columnDefinition = "varchar(50)")
     private String id;
 
-    //	@NotEmpty(message = "系统Id不能为空")
+    //@NotEmpty(message = "系统Id不能为空")
     private String systemId;
 
-    //  @NotEmpty(message = "车主姓名不能为空")
+    //@NotEmpty(message = "车主姓名不能为空")
     @Column(columnDefinition = "varchar(32)", nullable = false)
     private String name;
 
@@ -45,13 +45,13 @@ public class Tuser implements Serializable {
     @Column(columnDefinition = "varchar(32)")
     private String nickname;
 
-    //  @NotEmpty(message = "证件号不能为空")
+    // @NotEmpty(message = "证件号不能为空")
 //  @Length(min = 6, max = 32, message = "证件号长度最长32位，最少6位")
-    @DesensitizedAnnotation(type = TypeEnum.ID_NUMBER)
+//    @DesensitizedAnnotation(type = TypeEnum.ID_NUMBER)
     @Column(columnDefinition = "varchar(32)")
     private String idNumber;
 
-    @DesensitizedAnnotation(type = TypeEnum.HOME)
+//    @DesensitizedAnnotation(type = TypeEnum.HOME)
     @Column(columnDefinition = "varchar(100)")
     private String home;
 
@@ -64,7 +64,7 @@ public class Tuser implements Serializable {
     @Column(columnDefinition = "varchar(150)")
     private String loginName;
 
-    @DesensitizedAnnotation(type = TypeEnum.PHONE)
+//    @DesensitizedAnnotation(type = TypeEnum.PHONE)
     @NotEmpty(message = "登录账号不能为空")
     @Column(columnDefinition = "varchar(20)", nullable = false)
     private String phone;
@@ -78,7 +78,7 @@ public class Tuser implements Serializable {
     private String birthplace;
 
     //@NotEmpty(message = "手机号不能为空")
-    @DesensitizedAnnotation(type = TypeEnum.PHONE)
+//    @DesensitizedAnnotation(type = TypeEnum.PHONE)
     private String contactPhone;
 
     @Column(columnDefinition = "varchar(20)")

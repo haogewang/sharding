@@ -35,4 +35,6 @@ public class ElecmobileQuery extends BaseQuery {
     private String phone;
 
     private String modelNo;
+
+    private String userId;
 }

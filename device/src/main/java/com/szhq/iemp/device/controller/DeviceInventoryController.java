@@ -2,6 +2,7 @@ package com.szhq.iemp.device.controller;
 
 import com.alibaba.fastjson.JSONObject;
 import com.szhq.iemp.common.constant.ResultConstant;
+import com.szhq.iemp.common.util.DencryptTokenUtil;
 import com.szhq.iemp.common.vo.MyPage;
 import com.szhq.iemp.common.vo.Result;
 import com.szhq.iemp.device.api.model.TdeviceInventory;
@@ -12,6 +13,7 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
@@ -64,7 +66,7 @@ public class DeviceInventoryController {
     public Result getBoxNumbersOfPutStorage(@RequestParam(value = "offset") Integer offset,
                                             @RequestParam(value = "pagesize") Integer limit,
                                             @RequestBody DeviceQuery query) {
-        List<TdeviceInventory> list = deviceInventoryService.getBoxNumbersOfPutStorage(offset, limit, query);
+        Page<TdeviceInventory> list = deviceInventoryService.getBoxNumbersOfPutStorage(offset, limit, query);
         return new Result(ResultConstant.SUCCESS, list);
     }
     /**
@@ -76,7 +78,7 @@ public class DeviceInventoryController {
     @ApiOperation(value = "设备导入", notes = "设备导入")
     @RequestMapping(value = "/import", method = RequestMethod.POST)
     public Result importDeviceInventory(@Valid @RequestBody HashMap<String, List<TdeviceInventory>> deviceListMap, BindingResult result) {
-        if (result.hasErrors()) {
+        if (result.hasErrors() && result.getFieldError() != null) {
             log.error("import error.", result.getFieldError().getDefaultMessage());
             return new Result(ResultConstant.FAILED, result.getFieldError().getDefaultMessage());
         }
@@ -90,11 +92,26 @@ public class DeviceInventoryController {
 
     @ApiOperation(value = "根据箱号设备入库", notes = "根据箱号设备入库")
     @RequestMapping(value = "/putInStorageByBoxNumbers", method = RequestMethod.POST)
-    public Result putinStorage(
-            @RequestBody List<String> boxNumbers,
-            @RequestParam(value = "deviceStorehouseId") Integer storehouseId, HttpServletRequest request) {
+    public Result putinStorage(@RequestBody List<String> boxNumbers,
+                               @RequestParam(value = "deviceStorehouseId") Integer storehouseId, HttpServletRequest request) {
         Integer i = deviceInventoryService.putinStorageByBoxNumbers(boxNumbers, storehouseId, request);
         return new Result(ResultConstant.SUCCESS, i);
+    }
+
+    @ApiOperation(value = "根据发货批号入库", notes = "根据发货批号入库")
+    @RequestMapping(value = "/putInStorageByDeliverSns", method = RequestMethod.POST)
+    public Result putInStorageByDeliverSns(@RequestBody List<String> deliverSns,
+                               @RequestParam(value = "deviceStorehouseId") Integer storehouseId, HttpServletRequest request) {
+        Integer i = deviceInventoryService.putInStorageByDeliverSns(deliverSns, storehouseId, request);
+        return new Result(ResultConstant.SUCCESS, i);
+    }
+
+    @ApiOperation(value = "获取可入库批号", notes = "获取可入库批号")
+    @RequestMapping(value = "/getDeliverSns", method = RequestMethod.GET)
+    public Result getDeliverSns(HttpServletRequest request) {
+        List<Integer> operatorIds = DencryptTokenUtil.getOperatorIds(request);
+        List<TdeviceInventory> deliverSns = deviceInventoryService.getDeliverSns(operatorIds);
+        return new Result(ResultConstant.SUCCESS, deliverSns);
     }
 
     @ApiOperation(value = "获取可分配的箱号", notes = "获取可分配的箱号")
@@ -107,8 +124,7 @@ public class DeviceInventoryController {
 
     @ApiOperation(value = "根据imeis分配设备", notes = "根据imeis分配设备")
     @RequestMapping(value = "/dispatchByImeis", method = RequestMethod.POST)
-    public Result dispatchByImeis(
-                                  @RequestBody List<String> imeis,
+    public Result dispatchByImeis(@RequestBody List<String> imeis,
                                   @RequestParam(value = "installSiteId") Integer installSiteId) {
         Integer count = deviceInventoryService.dispatchByImeis(imeis, installSiteId);
         return new Result(ResultConstant.SUCCESS, count);
@@ -122,11 +138,18 @@ public class DeviceInventoryController {
         return new Result(ResultConstant.SUCCESS, count);
     }
 
-    @ApiOperation(value = "根据组Id查找所有imeis", notes = "根据imei查找运营公司")
+    @ApiOperation(value = "根据组Id查找所有imeis", notes = "根据组Id查找所有imeis")
     @RequestMapping(value = "/getImeisByGroupId", method = RequestMethod.GET)
     public Result getImeisByGroupId(@RequestParam("groupId") Integer groupId) {
         List<String> imeis = deviceInventoryService.getImeisByGroupId(groupId);
         return new Result(ResultConstant.SUCCESS, imeis);
+    }
+
+    @ApiOperation(value = "根据imei查设备详情", notes = "根据imei查设备详情")
+    @RequestMapping(value = "/getDeviceInfoByImei", method = RequestMethod.GET)
+    public Result getDeviceInfoByImei(@RequestParam("imei") String imei) {
+        TdeviceInventory device = deviceInventoryService.findByImei(imei);
+        return new Result(ResultConstant.SUCCESS, device);
     }
 
     @ApiOperation(value = "根据入库时间获取箱号及其设备数", notes = "根据入库时间获取箱号及其设备数")
@@ -201,6 +224,20 @@ public class DeviceInventoryController {
         return new Result(ResultConstant.SUCCESS, count);
     }
 
+    @ApiOperation(value = "根据箱号退库到华强", notes = "根据箱号退库到华强")
+    @RequestMapping(value = "/backToHQByBoxNumber", method = RequestMethod.POST)
+    public Result backToHQByBoxNumber(@RequestBody List<String> boxNumbers) {
+        Integer count = deviceInventoryService.backToHQByBoxNumber(boxNumbers);
+        return new Result(ResultConstant.SUCCESS, count);
+    }
+
+    @ApiOperation(value = "根据设备号退货", notes = "根据设备号退货")
+    @RequestMapping(value = "/backToHQByImeis", method = RequestMethod.POST)
+    public Result backToHQByImeis(@RequestBody List<String> imeis) {
+        Integer count = deviceInventoryService.backToHQByImeis(imeis);
+        return new Result(ResultConstant.SUCCESS, count);
+    }
+
     @ApiOperation(value = "根据设备号退库", notes = "根据设备号退库")
     @RequestMapping(value = "/backByImeis", method = RequestMethod.POST)
     public Result backByImei(@RequestBody List<String> imeis) {
@@ -246,13 +283,19 @@ public class DeviceInventoryController {
         return new Result(ResultConstant.SUCCESS, list);
     }
 
+    @ApiOperation(value = "根据imeis获取设备列表", notes = "根据imeis获取设备列表")
+    @RequestMapping(value = "/getInfoByImeis", method = RequestMethod.POST)
+    public Result getInfoByImeis(@RequestBody List<String> imeis) {
+        List<TdeviceInventory> devices = deviceInventoryService.getInfoByImeis(imeis);
+        return new Result(ResultConstant.SUCCESS, devices);
+    }
+
     @ApiOperation(value = "删除redis缓存", notes = "删除redis缓存")
     @RequestMapping(value = "/deleteRedis", method = RequestMethod.DELETE)
     public Result deleteRedis() {
         Integer i = deviceInventoryService.deleteDeviceRedisData();
         return new Result(ResultConstant.SUCCESS, i);
     }
-
 
 
 }

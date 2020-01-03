@@ -31,7 +31,7 @@ public class Tregistration extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long registerId;
 
-    @Column(columnDefinition = "varchar(32) COMMENT '设备imei号'", nullable = false, unique = true)
+    @Column(columnDefinition = "varchar(32) COMMENT '设备imei号'")
     private String imei;
 
     @Column(columnDefinition = "INT COMMENT '运营公司Id'", nullable = false)
@@ -44,17 +44,17 @@ public class Tregistration extends BaseEntity {
     @Column(columnDefinition = "bigint COMMENT '用户Id'", nullable = false)
     private Long electrmobileId;
 
-    @Column(columnDefinition = "varchar(32) COMMENT '车牌号'")
+    @Column(columnDefinition = "varchar(32) COMMENT '车牌号'", nullable = false, unique = true)
     private String plateNumber;
 
     @Column(columnDefinition = "varchar(32) COMMENT '车主姓名'")
     private String username;
 
-    @DesensitizedAnnotation(type = TypeEnum.PHONE)
+//    @DesensitizedAnnotation(type = TypeEnum.PHONE)
     @Column(columnDefinition = "varchar(32) COMMENT '登录账号'")
     private String phone;
 
-    @DesensitizedAnnotation(type = TypeEnum.ID_NUMBER)
+//    @DesensitizedAnnotation(type = TypeEnum.ID_NUMBER)
     @Column(columnDefinition = "varchar(40) COMMENT '身份证号'")
     private String idNumber;
 
@@ -70,18 +70,25 @@ public class Tregistration extends BaseEntity {
     @Column(columnDefinition = "varchar(40) COMMENT '支付订单号'")
     private String payNumber;
 
-    @Valid
+    private String modelNo;
+
+//    @Valid
     @Transient
     private Tuser user;
 
-    @Valid
+//    @Valid
     @Transient
-    private Telectrmobile electrmobile;
-
+    private Telectrmobile electrombile;
     /**
      * 预约号
      */
     @Transient
     private String reservationNo;
+
+    @Transient
+    private Toperator operator;
+
+    @Transient
+    private Long registrationId;
 
 }

@@ -1,0 +1,136 @@
+server:
+    port: 9005
+spring:
+    shardingsphere:
+        datasource:
+            names: master,slave
+            master:
+                driver-class-name: com.mysql.cj.jdbc.Driver
+                jdbc-url: jdbc:mysql://db:3306/tracker_v1?useUnicode=true&characterEncoding=utf-8&autoReconnect=true&serverTimezone=GMT%2b8&zeroDateTimeBehavior=convertToNull
+                username: fdmn
+                password: HuaQiang614376!
+                data-username: fdmn
+                data-password: HuaQiang614376!
+                data: classpath:sql/data.sql
+                pool-name: masterPool1
+                type: com.zaxxer.hikari.HikariDataSource
+                connection-timeout: 30000
+                max-lifetime: 1800000
+                minimum-idle: 5
+                maximum-pool-size: 20
+                auto-commit: true
+                idle-timeout: 30000
+                validation-timeout: 3000
+            slave:
+                driver-class-name: com.mysql.cj.jdbc.Driver
+                jdbc-url: jdbc:mysql://db-slave:3306/tracker_v1?useUnicode=true&characterEncoding=utf-8&autoReconnect=true&serverTimezone=GMT%2b8&zeroDateTimeBehavior=convertToNull
+                username: fdmn
+                password: HuaQiang614376!
+                pool-name: slavePool1
+                type: com.zaxxer.hikari.HikariDataSource
+                connection-timeout: 30000
+                max-lifetime: 1800000
+                minimum-idle: 5
+                maximum-pool-size: 20
+                auto-commit: true
+                idle-timeout: 30000
+                validation-timeout: 3000
+        props:
+            check:
+                table:
+                    metadata:
+                        enabled: false
+            executor:
+                size: 8
+            sql:
+                show: false
+        sharding:
+            broadcast-tables:
+                - t_common_config
+            default-data-source-name: ds
+            default-database-strategy:
+                inline:
+                    algorithm-expression: ds
+                    sharding-column: imei
+            default-table-strategy:
+                inline:
+                    algorithm-expression: t_device_inventory->{id % 2}
+                    sharding-column: id
+            master-slave-rules:
+                ds:
+                    name: ds
+                    load-balance-algorithm-type: ROUND_ROBIN
+                    master-data-source-name: master
+                    slave-data-source-names: slave
+            tables:
+                t_device_inventory:
+                    #ds.t_device_inventory$->{0..3}
+                    actual-data-nodes: ds.t_device_inventory
+                    # key-generator:
+                    #    column: id
+                    #    type: SNOWFLAKE
+                    table-strategy:
+                        standard:
+                            precise-algorithm-class-name: com.szhq.iemp.device.config.ShardingTableConfig
+                            range-algorithm-class-name: com.szhq.iemp.device.config.ShardingTableConfig
+                            sharding-column: imei
+    dubbo:
+        application:
+            id: aepdevicemanage
+            name: aepdevicemanage
+            registries:
+                session: 10000
+                timeout: 30000
+                wait: 20000
+        consumer:
+            check: false
+        protocol:
+            id: dubbo
+            name: dubbo
+            port: 32091
+            status: server
+        registry:
+            address: zookeeper://zookeeper01:2181?backup=zookeeper02:2181,zookeeper03:2181
+        scan: com.szhq.iemp
+        provider:
+            filter: customException
+    jackson:
+        time-zone: GMT+8
+    jpa:
+        hibernate:
+            ddl-auto: update
+        open-in-view: true
+        properties:
+            hibernate:
+                dialect: com.szhq.iemp.common.config.MysqlConfig
+                format_sql: true
+                jdbc:
+                    batch_size: 500
+                    order_inserts: true
+        show-sql: true
+    redis:
+        host: redis01
+        password: adminadmin
+        port: 6379
+        timeout: 10000
+        jedis:
+          pool:
+            max-active: 500
+            max-idle: 5
+            max-wait: 10000
+            min-idle: 0
+    boot:
+        admin:
+            client:
+                url: http://smx.szhqiot.top/springboot-admin
+                username: admin
+                password: szhq@2019
+springfox:
+    documentation:
+        swagger:
+            v2:
+                host: smx.szhqiot.top
+log:
+    path: /data/iEMP/logs/aep-devicemanage
+logging:
+    config: classpath:logback-spring.xml

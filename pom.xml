@@ -138,6 +138,7 @@
         <module>reservation-api</module>
         <module>device</module>
         <module>device-api</module>
+        <module>springboot-admin</module>
     </modules>
     <!--可以发布新的包到发行版本的仓库和开发版本的仓库 -->
     <distributionManagement>

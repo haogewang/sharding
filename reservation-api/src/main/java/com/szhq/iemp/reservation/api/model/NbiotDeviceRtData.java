@@ -3,6 +3,8 @@ package com.szhq.iemp.reservation.api.model;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.szhq.iemp.common.model.BaseEntity;
 import lombok.Data;
+import org.hibernate.annotations.DynamicInsert;
+import org.hibernate.annotations.DynamicUpdate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import javax.persistence.*;
@@ -13,10 +15,11 @@ import javax.persistence.*;
  */
 @Entity(name = "nbiot_device_rt_data")
 @Data
+@DynamicUpdate
+@DynamicInsert
 @EntityListeners(AuditingEntityListener.class)
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public class NbiotDeviceRtData extends BaseEntity {
-
 
     private static final long serialVersionUID = 1L;
 
@@ -86,8 +89,9 @@ public class NbiotDeviceRtData extends BaseEntity {
     private Integer positionMarker;
 
     private Integer visibleSatellitesNumber;
-    @Lob
-    @Basic(fetch = FetchType.LAZY)
+//    @Lob
+//    @Basic(fetch = FetchType.LAZY)
+    @Column(columnDefinition = "varchar(2000)")
     private String wlanInfo;
 
     @Transient

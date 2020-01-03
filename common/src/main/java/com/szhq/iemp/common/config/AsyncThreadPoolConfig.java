@@ -24,9 +24,9 @@ public class AsyncThreadPoolConfig {
         taskExecutor.setThreadNamePrefix("async-");
         // 线程池对拒绝任务（无线程可用）的处理策略，目前只支持AbortPolicy、CallerRunsPolicy；默认为后者
         taskExecutor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-        taskExecutor.setWaitForTasksToCompleteOnShutdown(true);
+        taskExecutor.setWaitForTasksToCompleteOnShutdown(false);
         //等待时长
-        taskExecutor.setAwaitTerminationSeconds(60);
+        taskExecutor.setAwaitTerminationSeconds(10);
         taskExecutor.initialize();
 
         return taskExecutor;

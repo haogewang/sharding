@@ -23,4 +23,8 @@ public interface InsuranceRepository extends JpaRepository<Tinsurance,Integer>,J
 
     @Query(value = "select * from t_insurance where id in (?1)",nativeQuery = true)
     public List<Tinsurance> findByIdIn(List<Integer> ids);
+
+    @Query(value = "select * from t_insurance where name_code = ?1",nativeQuery = true)
+    List<Tinsurance> listByPolicyCode(Integer id);
+
 }

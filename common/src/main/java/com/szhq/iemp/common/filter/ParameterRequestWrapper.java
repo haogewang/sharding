@@ -48,7 +48,7 @@ public class ParameterRequestWrapper extends HttpServletRequestWrapper {
                 }
             }
         } else {
-            log.info("no token or token decypt error.");
+            log.info("no token or token decrypt error.");
         }
         //将参数表，赋予给当前的Map以便于持有request中的参数
         Map<String, String[]> requestMap = request.getParameterMap();

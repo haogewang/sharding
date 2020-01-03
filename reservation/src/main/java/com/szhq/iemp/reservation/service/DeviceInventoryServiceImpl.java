@@ -7,7 +7,6 @@ import com.szhq.iemp.common.constant.enums.exception.DeviceExceptionEnum;
 import com.szhq.iemp.common.exception.NbiotException;
 import com.szhq.iemp.reservation.api.model.TdeviceInventory;
 import com.szhq.iemp.reservation.api.service.DeviceInventoryService;
-import com.szhq.iemp.reservation.api.service.OperatorService;
 import com.szhq.iemp.reservation.repository.DeviceInventoryRepository;
 import com.szhq.iemp.reservation.util.RedisUtil;
 import org.apache.commons.lang3.StringUtils;
@@ -28,45 +27,43 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
 
     @Resource
     private DeviceInventoryRepository deviceInventoryRepository;
-    @Autowired
-    private OperatorService operatorService;
 
     @Resource(name = "primaryRedisUtil")
     private RedisUtil redisUtil;
 
     @Override
     public void updateDevStat(String imei, Integer devStat) {
-        TdeviceInventory deviceInventory = findByImei(imei);
-        if (deviceInventory != null) {
-            deviceInventory.setDevstate(devStat);
-            save(deviceInventory);
-            redisUtil.del(CommonConstant.DEVICE_IMEI + imei);
-            logger.info("update deviceInventory state success, imei is:" + imei);
+        TdeviceInventory device = findByImei(imei);
+        if (device != null) {
+            device.setDevstate(devStat);
+            save(device);
+            logger.info("update device state success, imei is:{}",imei);
         } else {
-            logger.error("deviceInventory is not exist,imei is:" + imei);
-            throw new NbiotException(CommonConstant.WRONG_CODE, DeviceExceptionEnum.E_0000.getMessage());
+            logger.error("device is not exist.imei is:{}",imei);
+            throw new NbiotException(400002, DeviceExceptionEnum.E_0000.getMessage());
         }
     }
 
     @Override
     public TdeviceInventory findByImei(String imei) {
-        String deviceInventoryString = (String) redisUtil.get(CommonConstant.DEVICE_IMEI + imei);
-        if (StringUtils.isEmpty(deviceInventoryString)) {
-            TdeviceInventory deviceInventory = deviceInventoryRepository.findByImei(imei);
-            if (deviceInventory != null) {
-                redisUtil.set(CommonConstant.DEVICE_IMEI + imei, JSON.toJSONString(deviceInventory), 5, TimeUnit.DAYS);
+//        TdeviceInventory deviceInventory = deviceInventoryRepository.findByImei(imei);
+//        return deviceInventory;
+        String deviceString = (String) redisUtil.get(CommonConstant.DEVICE_IMEI + imei);
+        if (deviceString == null) {
+            TdeviceInventory device = deviceInventoryRepository.findByImei(imei);
+            if (device != null) {
+                redisUtil.set(CommonConstant.DEVICE_IMEI + imei, JSONObject.toJSONString(device), 3600*24);
             }
-            return deviceInventory;
+            return device;
         }
-        logger.info("get device data from redis. imei:" + imei);
-        TdeviceInventory deviceInventory = JSONObject.parseObject(deviceInventoryString, TdeviceInventory.class);
-        return deviceInventory;
+        logger.info("get device data from redis . imei:" + imei);
+        TdeviceInventory device = JSONObject.parseObject(deviceString, TdeviceInventory.class);
+        return device;
     }
 
     @Override
     public TdeviceInventory findByImeiAndInstallSiteIdIsNotNull(String imei) {
-        TdeviceInventory deviceInventory = deviceInventoryRepository.findByImeiAndInstallSiteIdIsNotNull(imei);
-        return deviceInventory;
+        return deviceInventoryRepository.findByImeiAndInstallSiteIdIsNotNull(imei);
     }
 
     @Override
@@ -76,10 +73,10 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
             device = deviceInventoryRepository.save(entity);
             logger.info("save device success, imei is:" + entity.getImei());
             deleteDeviceRedisKey();
-            deleteRedisByImeiAndIotDeviceId(device.getImei(), device.getIotDeviceId());
+            deleteRedisByIotDeviceId(device.getIotDeviceId());
             return device;
         } catch (Exception e) {
-            logger.error("e:" + device.getImei(), e);
+            logger.error("e:" + entity.getImei(), e);
             throw new NbiotException(CommonConstant.WRONG_CODE, e.getMessage());
         }
     }
@@ -94,8 +91,7 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
             }
             return deviceInventory;
         }
-        TdeviceInventory deviceInventory = JSONObject.parseObject(deviceInventoryString, TdeviceInventory.class);
-        return deviceInventory;
+        return JSONObject.parseObject(deviceInventoryString, TdeviceInventory.class);
     }
 
     @Override
@@ -103,23 +99,18 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
         return deviceInventoryRepository.deleteByImei(imei);
     }
 
-    private void deleteRedisByImeiAndIotDeviceId(String imei, String iotDeviceId) {
+    private void deleteRedisByIotDeviceId(String iotDeviceId) {
         if(StringUtils.isNotEmpty(iotDeviceId)){
-            String iotdeviceKey = CommonConstant.IOTDEVICEID + iotDeviceId;
+            String iotDeviceKey = CommonConstant.IOTDEVICEID + iotDeviceId;
             String key1 = CommonConstant.REGISTER_IOTDEVICEID + iotDeviceId;
-            if (redisUtil.hasKey(iotdeviceKey)) {
-                redisUtil.del(iotdeviceKey);
-                logger.info("redis delete key [" + iotdeviceKey + "] success");
+            if (redisUtil != null && redisUtil.hasKey(iotDeviceKey)) {
+                redisUtil.del(iotDeviceKey);
+                logger.info("redis delete key [" + iotDeviceKey + "] success");
             }
-            if (redisUtil.hasKey(key1)) {
+            if (redisUtil != null && redisUtil.hasKey(key1)) {
                 redisUtil.del(key1);
                 logger.info("redis delete key [" + key1 + "] success");
             }
-        }
-        String deviceKey = CommonConstant.DEVICE_IMEI + imei;
-        if (redisUtil.hasKey(deviceKey)) {
-            redisUtil.del(deviceKey);
-            logger.info("redis delete key [" + deviceKey + "] success");
         }
     }
 
@@ -144,6 +135,5 @@ public class DeviceInventoryServiceImpl implements DeviceInventoryService {
             }
         }
     }
-
 
 }

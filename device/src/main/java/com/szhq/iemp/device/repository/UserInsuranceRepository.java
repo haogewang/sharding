@@ -3,6 +3,7 @@ package com.szhq.iemp.device.repository;
 import com.szhq.iemp.device.api.model.TuserInsurance;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
@@ -15,4 +16,8 @@ public interface UserInsuranceRepository extends JpaRepository<TuserInsurance,In
 
     @Query(value = "select * from t_user_insurance where policy_id =?1",nativeQuery = true)
     List<TuserInsurance> findByPolicyId(Long policyId);
+
+    @Modifying
+    @Query(value = "delete from t_user_insurance where policy_id in (?1)",nativeQuery = true)
+    void deleteByPolicyIds(List<Long> policyIds);
 }

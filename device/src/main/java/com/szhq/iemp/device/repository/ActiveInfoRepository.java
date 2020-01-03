@@ -38,4 +38,15 @@ public interface ActiveInfoRepository extends JpaRepository<TactiveInfo,Long>,Jp
 
     @Query(value = "select DATE_FORMAT(`create_time`, '%Y-%m-%d') as days, count(distinct imei, if(mode=1,true,null)) AS active_count, count(distinct imei,if(mode=0,true,null)) as unactive_count from t_activator where group_id =?1 and datediff(now(),create_time) <= ?2 GROUP BY days ORDER BY create_time DESC", nativeQuery = true)
     List<Map<String, Object>> activeStatisticByGroupId(String groupId, Integer offset);
+
+    @Query(value = "select * from t_activator where group_id =?1", nativeQuery = true)
+    List<TactiveInfo> getInfoByGroupId(String id);
+
+    @Query(value = "select activator_id, activator_name, count(distinct imei, if(mode=1,true,null)) as active_count, count(distinct imei,if(mode=0,true,null)) as unactive_count from t_activator where group_id =?1 group by activator_id", nativeQuery = true)
+    List<Map<String, Object>> getStatisticInfoByGroupId(String id);
+
+    @Query(value = "select imei from t_activator where operator_id in (?1)", nativeQuery = true)
+    List<String> findImeisByOperatorIds(List<Integer> operatorIds);
+
+
 }

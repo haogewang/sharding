@@ -17,4 +17,6 @@ public interface PolicyInfoService {
     TpolicyInfo findByImeiAndUserId(String imei, String userId);
 
     TpolicyInfo findByImeiAndUserIdisNull(String imei);
+
+    TpolicyInfo findByImei(String imei);
 }

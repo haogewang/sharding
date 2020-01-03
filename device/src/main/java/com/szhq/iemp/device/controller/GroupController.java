@@ -25,10 +25,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Api(description = "分组模块")
@@ -55,7 +52,26 @@ public class GroupController {
         List<Tgroup> results = new ArrayList<>();
         MyPage<Tgroup> list = groupService.findGroupByCriteria(offset, limit, sort, order, query);
         Map<String, Object> result = new HashMap<>();
-        result.put("groups", list.getContent());
+        for(Tgroup group : list.getContent()){
+            Long elecCount = 0L;
+            Integer deviceCount = 0;
+            if(Objects.equals(1, group.getType())){
+                List<Tgroup> groups = groupService.getAllDeviceGroupChildrenById(group.getId());
+                List<Integer> groupIds = groups.stream().map(Tgroup::getId).collect(Collectors.toList());
+                deviceCount = deviceInventoryService.countByGroupIds(groupIds);
+            }
+            if(Objects.equals(2, group.getType())){
+                List<Tgroup> groups = groupService.getAllElecGroupChildrenById(group.getId());
+                List<Integer> groupIds = groups.stream().map(Tgroup::getId).collect(Collectors.toList());
+                DeviceQuery deviceQuery = new DeviceQuery();
+                deviceQuery.setGroupIdList(groupIds);
+                elecCount = electrmobileService.countByCriteria(deviceQuery);
+            }
+            group.setElecCount(elecCount);
+            group.setDeviceCount(deviceCount);
+            results.add(group);
+        }
+        result.put("groups", results);
         result.put("total", list.getTotal());
         return new Result(ResultConstant.SUCCESS, result);
     }
@@ -69,7 +85,10 @@ public class GroupController {
             throw new NbiotException(500006, GroupExceptionEnum.E_0008.getMessage());
         }
         DeviceQuery deviceQuery = new DeviceQuery();
-        deviceQuery.setGroupId(query.getGroupId());
+//        deviceQuery.setGroupId(query.getGroupId());
+        List<Tgroup> groups = groupService.getAllDeviceGroupChildrenById(query.getGroupId());
+        List<Integer> groupIds = groups.stream().map(Tgroup::getId).collect(Collectors.toList());
+        deviceQuery.setGroupIdList(groupIds);
         if(StringUtils.isNotEmpty(query.getImei())){
             deviceQuery.setImei(query.getImei());
         }
@@ -87,7 +106,10 @@ public class GroupController {
             throw new NbiotException(500006, GroupExceptionEnum.E_0008.getMessage());
         }
         ElecmobileQuery elecmobileQuery = new ElecmobileQuery();
-        elecmobileQuery.setGroupId(query.getGroupId());
+//        elecmobileQuery.setGroupId(query.getGroupId());
+        List<Tgroup> groups = groupService.getAllDeviceGroupChildrenById(query.getGroupId());
+        List<Integer> groupIds = groups.stream().map(Tgroup::getId).collect(Collectors.toList());
+        elecmobileQuery.setGroupIdList(groupIds);
         if(StringUtils.isNotEmpty(query.getPlateNo())){
             elecmobileQuery.setPlateNo(query.getPlateNo());
         }
@@ -114,7 +136,7 @@ public class GroupController {
         return new Result(ResultConstant.SUCCESS, groups);
     }
 
-    @ApiOperation(value = "根据id查找车辆分组的所下级子类", notes = "根据id查找车辆分组的下级子类")
+    @ApiOperation(value = "根据id查找车辆分组的下级子类", notes = "根据id查找车辆分组的下级子类")
     @RequestMapping(value = "/getNextElecGroupsByPId", method = RequestMethod.GET)
     public Result getNextElecGroupsByPId(@RequestParam(value = "parentId") Integer id) {
         List<Tgroup> groups = groupService.getNextElecGroupById(id);

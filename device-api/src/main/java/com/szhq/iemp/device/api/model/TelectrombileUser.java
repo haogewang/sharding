@@ -29,7 +29,12 @@ public class TelectrombileUser extends BaseEntity {
 
     private String userId;
 
-    private Long noTrackerElecId;
+//    private Long noTrackerElecId;
 
     private Integer operatorId;
+
+    /**
+     * 是否本人 0:不是 1：是
+     */
+    private Integer isOwner = 1;
 }

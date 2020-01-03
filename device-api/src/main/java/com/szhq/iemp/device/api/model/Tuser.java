@@ -8,10 +8,7 @@ import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.validator.constraints.Length;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.EntityListeners;
-import javax.persistence.Id;
+import javax.persistence.*;
 import javax.validation.constraints.Email;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
@@ -101,5 +98,12 @@ public class Tuser implements Serializable {
     private String createTime;
 
     private String updateTime;
+
+    @Transient
+    private String sex;
+
+    //签名url
+    @Transient
+    private String signUrl;
 
 }

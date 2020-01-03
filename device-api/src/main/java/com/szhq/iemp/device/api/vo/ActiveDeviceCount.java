@@ -38,5 +38,7 @@ public class ActiveDeviceCount implements Serializable {
 
     private Date date;
 
+    private String activatorName;
+
 
 }

@@ -10,6 +10,7 @@ public class CommonConstant {
     public static final Integer WRONG_CODE = 500;
 //    public static final Integer WRONG_PARAMETER_CODE = 400;
     public static final String DEVICE_MODE_310 = "W310";
+    public static final String DEVICE_MODE_302 = "W302";
 
     public static final String MAX_RESERVATION_NUM_KEY = "max-reservation";
     public static final String RESERVATION_IN_DAYS_KEY = "reservation-in-days";
@@ -19,7 +20,7 @@ public class CommonConstant {
 
     public static final String IEMP_NBIOT_TRACKER_IMEI = "iemp-nbiot-tracker-imei_";
 
-
+    public static final String REGISTER_USERID = "registerUserId:";
     public static final String REGISTER_IMEI = "registerImei:";
     public static final String REGISTER_ID = "registerId:";
     public static final String REGISTER_IOTDEVICEID = "register-iotDeviceId:";
@@ -38,6 +39,7 @@ public class CommonConstant {
     public static final String OPERATOR_IMEI_KEY = "operator-imei-";
     public static final String RTDATA_IMEI_KEY = "rtdata_";
     public static final String RT_WLANDATA_IMEI_KEY = "rt_wlan_data_";
+    public static final String RTDATA_KEY = "rtdata:";
 
     public static final String REGION_ID = "region-";
 
@@ -51,8 +53,9 @@ public class CommonConstant {
     public static final String DEVICE_PATTERN = "aepDeviceInventory::com.szhq.iemp.device.service.DeviceInventoryServiceImpl*";
     public static final String REGION_PATTERN = "aepAddressRegion::com.szhq.iemp.device.service.AddressRegionServiceImpl*";
     public static final String OPERATOR_PATTERN = "aepOperator::com.szhq.iemp.device.service.OperatorServiceImpl*";
-    public static final String HISTORY_DISPACHE_LOG_PATTERN = "aepDispacheHistoryLog::com.szhq.iemp.device.service.DeviceDispacheHistoryServiceimpl*";
+    public static final String HISTORY_DISPACHE_LOG_PATTERN = "aepDispacheHistoryLog::com.szhq.iemp.device.service.DeviceDispacheHistoryServiceImpl*";
     public static final String NOTRACKER_PATTERN = "aepNoTrackerElec::com.szhq.iemp.reservation.service.NoTrackerElecmobileServiceImpl*";
+
     public static final String RT_DATA_KEY = "consumer-mysql::com.szhq.data.kafkaconsumer.service.slave.impl.NbiotDeviceRtDataServiceImplfindByImei";
 
     public static final String CMCC = "CMCC";
@@ -70,16 +73,20 @@ public class CommonConstant {
     public static final String ALARM_LIST_URL = "/alarm/list";
 
     public static final String REGISTER_URL = "/register/";
+    public static final String REGISTER_ADD_URL = "/register/add";
     public static final String REGISTER_CHANGEIMEI_URL = "/register/changeImei";
     public static final String REGISTER_DELETE_URL = "/register/delete";
     public static final String REGISTER_LOG_SEARCH = "/registrationLog/log";
     public static final String REGISTER_SEARCH_URL = "/register/search";
+    public static final String REGISTER_SEARCHER_URL = "/register/searcher";
     public static final String REGISTER_COUNT = "/register/count";
     public static final String REGISTER_LIST_URL = "/register/list";
 
     public static final String NOTRACKER_SEARCH = "/notracker/search";
     public static final String NOTRACKER_ADD_REGISTER = "/notracker/addRegister";
+    public static final String NOTRACKER_ADD_REGISTER_NOIMEI = "/notracker/addRegisterNoImei";
     public static final String NOTRACKER_BOUND = "/notracker/boundDevice";
+    public static final String NOTRACKER_BOUND_DEVICES = "/notracker/boundDevices";
     //310
     public static final String NOTRACKER_UNBOUND_DEVICE = "/notracker/unboundDevice";
     public static final String NOTRACKER_UNBOUND = "/notracker/unbound";
@@ -119,13 +126,20 @@ public class CommonConstant {
     public static final String BACK_BY_BOXNUMBER_URL = "/deviceInventory/backByBoxNumbers";
     public static final String BACK_BY_IMEIS_URL = "/deviceInventory/backByImeis";
     public static final String PUT_INTO_STORAGE_URL = "/deviceInventory/putInStorageByBoxNumbers";
+    public static final String PUT_INTO_STORAGE_BY_DELIVERSN_URL = "/deviceInventory/putInStorageByDeliverSns";
 
     public static final String DISPATCH_TO_DEVICE_GROUP_URL = "/group/dispatchToDeviceGroup";
     public static final String DISPATCH_TO_ELEC_GROUP_URL = "/group/dispatchToElecGroup";
     public static final String REMOVE_GROUP = "/group/removeGroup";
+    public static final String GROUP_SEARCH_URL = "/group/search";
 
     public static final String DATA_COUNTBYCONTION_URL = "/data-presentation/countByCondition";
     public static final String DATA_INSTALLSITE_ORDER_URL = "/data-presentation/installSiteOrder";
     public static final String DATA_HISTORY_INSTALLED_STASTIC_URL = "/data-presentation/historyInstalledStatistics";
     public static final String DATA_INSTALLED_INFO_URL = "/data-presentation/installedInfo";
+
+
+    public static final String INSURANCE_310DEVICES_URL = "/insurance/310devices";
+    public static final String INSURANCE_SEARCH_URL = "/insurance/search";
+
 }

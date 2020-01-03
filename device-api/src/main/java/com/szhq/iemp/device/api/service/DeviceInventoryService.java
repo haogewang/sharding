@@ -6,6 +6,7 @@ import com.szhq.iemp.device.api.model.TdeviceInventory;
 import com.szhq.iemp.device.api.vo.*;
 import com.szhq.iemp.device.api.vo.query.DeviceQuery;
 import com.szhq.iemp.device.api.vo.query.InstallSiteQuery;
+import org.springframework.data.domain.Page;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -39,6 +40,10 @@ public interface DeviceInventoryService {
      */
     List<Integer> getOperatorIdsByBoxNumbers(List<String> boxNumbers);
     /**
+     * 根据批号查找运营公司
+     */
+    List<Integer> getOperatorIdsByDeliverSns(List<String> deliverSns);
+    /**
      * 根据imeis查找运营公司
      */
     List<Integer> getOperatorIdsByImeis(List<String> imeis);
@@ -64,6 +69,10 @@ public interface DeviceInventoryService {
      *根据箱号入库
      */
     Integer putinStorageByBoxNumbers(List<String> boxNumbers, Integer storehouseId, HttpServletRequest request);
+    /**
+     * 根据发货批号入库
+     */
+    Integer putInStorageByDeliverSns(List<String> deliverSns, Integer storehouseId, HttpServletRequest request);
     /**
      *根据imeis分配设备
      */
@@ -109,6 +118,14 @@ public interface DeviceInventoryService {
      */
     Integer backOffByImeis(List<String> imeis);
     /**
+     * 按箱子退库到华强
+     */
+    Integer backToHQByBoxNumber(List<String> boxNumbers);
+    /**
+     * 按设备列表退库到华强
+     */
+    Integer backToHQByImeis(List<String> imeis);
+    /**
      * 根据imei退货
      */
     Integer returnOffDeviceByImeis(List<String> imeis);
@@ -148,6 +165,10 @@ public interface DeviceInventoryService {
      * 根据组id统计设备数
      */
     Integer countByGroupId(Integer groupId);
+    /**
+     * 根据组ids统计设备数
+     */
+    Integer countByGroupIds(List<Integer> groupIds);
     /**
      * 根据仓库Id计算该仓库设备数量
      */
@@ -201,10 +222,18 @@ public interface DeviceInventoryService {
      */
     Integer removeGroupByImeis(List<String> imeis);
     /**
-     * 统计库存数量（仓库已激活状态）
+     * 统计库存数量（只统计310仓库已激活状态）
      */
     Integer countStoreCountByOperatorIds(List<Integer> operatorIds);
+    /**
+     * 统计所有未销售(库存)数量(包括310及302)
+     */
+    Integer countAllStoreCountByOperatorIds(List<Integer> operatorIds);
 
+    /**
+     *统计已安装设备数
+     */
+    Integer countInstalledCountByOperatorIds(List<Integer> operatorIds);
     /**
      * 统计库销售数量（仓库已激活状态）
      */
@@ -216,7 +245,7 @@ public interface DeviceInventoryService {
     /**
      * 入库列表（按箱号展示）
      */
-    List<TdeviceInventory> getBoxNumbersOfPutStorage(Integer page, Integer size, DeviceQuery query);
+    Page<TdeviceInventory> getBoxNumbersOfPutStorage(Integer page, Integer size, DeviceQuery query);
     /**
      * 根据组Id查找设备
      */
@@ -233,4 +262,19 @@ public interface DeviceInventoryService {
      * 根据imeis获取安装人员姓名
      */
     Map<String, RegisterVo> getInstalledWorkerByImeis(List<String> imeis);
+    /**
+     * 获取可入库的批号
+     */
+    List<TdeviceInventory> getDeliverSns(List<Integer> operatorIds);
+
+    /**
+     *根据imeis获取设备详情
+     */
+    List<TdeviceInventory> getInfoByImeis(List<String> imeis);
+    /**
+     * 找到所有已安装设备
+     */
+    List<TdeviceInventory> getAllInstalledDevices();
+
+
 }

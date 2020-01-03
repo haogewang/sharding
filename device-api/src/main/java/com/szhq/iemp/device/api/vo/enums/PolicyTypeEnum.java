@@ -5,8 +5,8 @@ import java.util.Objects;
 public enum PolicyTypeEnum {
 
     DSZ("第三者责任险", 1),
-    RSYW("人身意外险", 2),
-    ZCDQ("整车盗抢险", 3);
+    RSYW("驾驶人意外伤害险", 2),
+    ZCDQ("整车盗抢损失险", 3);
 
     private String type;
     private Integer code;

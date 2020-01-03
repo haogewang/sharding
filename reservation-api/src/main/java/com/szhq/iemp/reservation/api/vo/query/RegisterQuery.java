@@ -52,4 +52,10 @@ public class RegisterQuery extends BaseQuery {
      */
     private String modelNo;
 
+    private Boolean isHaveImei;
+    /**
+     * 是否加密
+     */
+    private Boolean encrypt = false;
+
 }

@@ -30,7 +30,11 @@ public class StringJsonUtils {
                 Object values = "";
                 if ("operatorIdList".equals(key)) {
                     values = map.get(key);
-                } else {
+                }
+                else if("imeiList".equals(key)){
+                    values = map.get(key);
+                }
+                else {
                     values = map.get(key).toString();
                     values = ((String) values).trim();
                 }

@@ -4,6 +4,8 @@ import com.szhq.iemp.common.vo.BaseQuery;
 import lombok.Data;
 import lombok.ToString;
 
+import java.util.List;
+
 @Data
 @ToString(callSuper = true)
 public class ElecmobileQuery extends BaseQuery {
@@ -17,5 +19,7 @@ public class ElecmobileQuery extends BaseQuery {
      * 分组Id
      */
     private Integer groupId;
+
+    private List<Integer> groupIdList;
 
 }

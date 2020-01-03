@@ -68,14 +68,6 @@ public class ActiveInfoServiceImpl implements ActiveInfoService {
 	private RedisUtil redisUtil;
 
 	@Override
-	public Integer activeImei(String imei, String userId) {
-		updateActiveData(imei, userId, 1);
-		Integer i = deviceInventoryService.updateActiveStateByImei(imei, true);
-		redisUtil.del(CommonConstant.DEVICE_IMEI + imei);
-		return i;
-	}
-
-	@Override
 	public Integer countTodayActiveByActivatorId(String activitorId, Integer mode) {
 		return activeInfoRepository.countTodayActiveByActivatorId(activitorId, mode);
 	}
@@ -108,6 +100,14 @@ public class ActiveInfoServiceImpl implements ActiveInfoService {
 	}
 
 	@Override
+	public Integer activeImei(String imei, String userId) {
+		updateActiveData(imei, userId, 1);
+		Integer i = deviceInventoryService.updateActiveStateByImei(imei, true);
+		deleteRedisDeviceImeiByImei(imei);
+		return i;
+	}
+
+	@Override
 	public Integer back(String imei, String userId) {
 		Integer i = electrombileService.countByImei(imei);
 		if(i > 0){
@@ -125,6 +125,15 @@ public class ActiveInfoServiceImpl implements ActiveInfoService {
 		policyInfoService.updatePolicy(tpolicyInfo);
 		Integer j = deviceInventoryService.updateActiveStateByImei(imei, false);
 		return j;
+	}
+
+
+	@Override
+	public Integer returnOff(String imei) {
+		//已绑定设备不允许退货
+		//删除激活记录和销售记录？
+		//删除保单？
+		return null;
 	}
 
 	@Override
@@ -182,25 +191,7 @@ public class ActiveInfoServiceImpl implements ActiveInfoService {
 		List<ActiveDeviceCount> result = new ArrayList<>();
 		List<Integer> ids =  operatorService.findAllChildIds(query.getOperatorId());
 		List<Map<String, Object>> activeStatistics = activeInfoRepository.activeStatisticByOperatorId(ids, query.getOffset());
-		if(activeStatistics != null && !activeStatistics.isEmpty()){
-			for(Map<String, Object> map : activeStatistics){
-				ActiveDeviceCount activeCount = new ActiveDeviceCount();
-				String days = (String)map.get("days");
-				Long activecount = 0L;
-				Long unactivecount = 0L;
-				if(map.get("active_count") != null){
-					activecount = Long.valueOf(map.get("active_count").toString());
-				}
-				if(map.get("unactive_count") != null){
-					unactivecount = Long.valueOf((String)map.get("unactive_count").toString());
-				}
-				Date date = TimeStampUtil.parseDate(days, "yyyy-MM-dd");
-				activeCount.setActiveCount(activecount);
-				activeCount.setNoActiveCount(unactivecount);
-				activeCount.setDate(date);
-				result.add(activeCount);
-			}
-		}
+		setActiveValue(result, activeStatistics);
 		return result;
 	}
 
@@ -211,26 +202,44 @@ public class ActiveInfoServiceImpl implements ActiveInfoService {
 		}
 		List<ActiveDeviceCount> result = new ArrayList<>();
 		List<Map<String, Object>> saleStatistics = activeInfoRepository.activeStatisticByGroupId(query.getGroupId(), query.getOffset());
+		setActiveValue(result, saleStatistics);
+		return result;
+	}
+
+	@Override
+	public List<TactiveInfo> getInfoByGroupId(String id) {
+		return activeInfoRepository.getInfoByGroupId(id);
+	}
+
+	@Override
+	public List<ActiveDeviceCount> getStatisticInfoByGroupId(String id) {
+		List<Map<String, Object>> saleStatistics = activeInfoRepository.getStatisticInfoByGroupId(id);
+		List<ActiveDeviceCount> result = new ArrayList<>();
 		if(saleStatistics != null && !saleStatistics.isEmpty()){
 			for(Map<String, Object> map : saleStatistics){
-				ActiveDeviceCount activeCount = new ActiveDeviceCount();
-				String days = (String)map.get("days");
 				Long activecount = 0L;
 				Long unactivecount = 0L;
+				ActiveDeviceCount activeCount = new ActiveDeviceCount();
+				String activatorName = (String)map.get("activator_name");
 				if(map.get("active_count") != null){
 					activecount = Long.valueOf(map.get("active_count").toString());
+					log.debug("");
 				}
 				if(map.get("unactive_count") != null){
 					unactivecount = Long.valueOf((String)map.get("unactive_count").toString());
 				}
-				Date date = TimeStampUtil.parseDate(days, "yyyy-MM-dd");
+				activeCount.setActivatorName(activatorName);
 				activeCount.setActiveCount(activecount);
 				activeCount.setNoActiveCount(unactivecount);
-				activeCount.setDate(date);
 				result.add(activeCount);
 			}
 		}
 		return result;
+	}
+
+	@Override
+	public List<String> findImeisByOperatorIds(List<Integer> operatorIds) {
+		return activeInfoRepository.findImeisByOperatorIds(operatorIds);
 	}
 
 	@Override
@@ -239,7 +248,7 @@ public class ActiveInfoServiceImpl implements ActiveInfoService {
 		return activeInfo.getId();
 	}
 
-	private void updateActiveData(String imei, String userId, int mode) {
+	private TdeviceInventory updateActiveData(String imei, String userId, int mode) {
 		TdeviceInventory device = deviceInventoryService.findByImei(imei);
 		if (device == null) {
 			log.error("device is not exist.imei:" + imei);
@@ -250,7 +259,7 @@ public class ActiveInfoServiceImpl implements ActiveInfoService {
 			throw new NbiotException(400021, DeviceExceptionEnum.E_00035.getMessage());
 		}
 		if(!device.getIsActive() && mode == 0){
-			log.error("device already unActive.imei:" + imei);
+			log.error("device unActive.imei:" + imei);
 			throw new NbiotException(400022, DeviceExceptionEnum.E_00036.getMessage());
 		}
 		Tuser user = userService.findById(userId);
@@ -273,21 +282,55 @@ public class ActiveInfoServiceImpl implements ActiveInfoService {
 		activeInfo.setOperatorId(device.getOperatorId());
 		activeInfo.setStorehouseId(device.getStorehouseId());
 		save(activeInfo);
-//		saveSaleRecord(activeInfo);
+		saveSaleRecord(activeInfo);
+		return device;
+	}
+
+	private void setActiveValue(List<ActiveDeviceCount> result, List<Map<String, Object>> saleStatistics) {
+		if (saleStatistics != null && !saleStatistics.isEmpty()) {
+			for (Map<String, Object> map : saleStatistics) {
+				ActiveDeviceCount activeCount = new ActiveDeviceCount();
+				String days = (String) map.get("days");
+				Long activecount = 0L;
+				Long unActivecount = 0L;
+				if (map.get("unactive_count") != null) {
+					unActivecount = Long.valueOf((String) map.get("unactive_count").toString());
+				}
+				Date date = TimeStampUtil.parseDate(days, "yyyy-MM-dd");
+				if (map.get("active_count") != null) {
+					activecount = Long.valueOf(map.get("active_count").toString());
+				}
+				activeCount.setActiveCount(activecount);
+				activeCount.setNoActiveCount(unActivecount);
+				activeCount.setDate(date);
+				result.add(activeCount);
+			}
+		}
+	}
+
+	private void deleteRedisDeviceImeiByImei(String imei) {
+		if (redisUtil.hasKey(CommonConstant.DEVICE_IMEI + imei)) {
+			redisUtil.del(CommonConstant.DEVICE_IMEI + imei);
+			log.info("redis delete key [" + CommonConstant.DEVICE_IMEI + imei + "] success");
+		}
 	}
 
 	/**
 	 * 保存销售记录
 	 */
-//	private void saveSaleRecord(TactiveInfo activeInfo) {
-//		TsaleRecord record = saleRecordService.findByImeiAndMode(activeInfo.getImei(), activeInfo.getMode());
-//		if(record ==null){
-//			TsaleRecord saleRecord = new TsaleRecord();
-//			BeanUtils.copyProperties(activeInfo, saleRecord, PropertyUtil.getNullProperties(activeInfo));
-//			saleRecordService.add(saleRecord);
-//		}else {
-//			BeanUtils.copyProperties(activeInfo, record, PropertyUtil.getNullProperties(activeInfo));
-//			saleRecordService.add(record);
-//		}
-//	}
+	private void saveSaleRecord(TactiveInfo activeInfo) {
+		TsaleRecord record = saleRecordService.findByImeiAndMode(activeInfo.getImei(), activeInfo.getMode());
+		if(record ==null){
+			TsaleRecord saleRecord = new TsaleRecord();
+			BeanUtils.copyProperties(activeInfo, saleRecord, PropertyUtil.getNullProperties(activeInfo));
+			saleRecord.setId(null);
+			saleRecordService.add(saleRecord);
+		}else {
+			TsaleRecord record1 = new TsaleRecord();
+			BeanUtils.copyProperties(activeInfo, record1, PropertyUtil.getNullProperties(activeInfo));
+			record1.setId(null);
+			BeanUtils.copyProperties(record1, record, PropertyUtil.getNullProperties(record1));
+			saleRecordService.add(record);
+		}
+	}
 }

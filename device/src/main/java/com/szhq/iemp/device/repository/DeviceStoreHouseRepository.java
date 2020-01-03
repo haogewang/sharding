@@ -53,4 +53,7 @@ public interface DeviceStoreHouseRepository extends JpaRepository<TdeviceStoreHo
 
     @Query(value = "select * from t_device_storehouse where operator_id = ?1", nativeQuery = true)
     List<TdeviceStoreHouse> findAllStoresByOperatorId(Integer operatorId);
+
+    @Query(value = "select * from t_device_storehouse where id in (?1)", nativeQuery = true)
+    List<TdeviceStoreHouse> findByIds(List<Integer> storehouseIds);
 }

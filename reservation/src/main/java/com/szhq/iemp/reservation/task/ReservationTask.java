@@ -18,10 +18,10 @@ public class ReservationTask {
     private ReservationService reservationService;
 
     /**
-     * 每天凌晨0：00执行一次
+     * 每天00:05执行一次
      */
-    @Scheduled(cron = "0 0 0 * * ?")
-    public void logInfoDelCron() {
+    @Scheduled(cron = "0 5 0 * * ?")
+    public void reservationDelCron() {
         logger.debug("start del reservation three days ago data...");
         Integer count = reservationService.deleteThreeDaysAgoData();
         logger.info("del reservation three days ago data finished,count is:" + count);

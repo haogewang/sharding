@@ -29,7 +29,15 @@ public class ElecmobileVenderServiceImpl implements ElecmobileVenderService {
 
     @Override
     public List<TelectrombileVendor> findAll() {
-        return electrombileVendorRepository.findAll();
+        List<TelectrombileVendor> result = new ArrayList<>();
+        List<TelectrombileVendor> list = electrombileVendorRepository.findAll();
+        if(list != null && !list.isEmpty()){
+            for(TelectrombileVendor vendor : list){
+                vendor.setElectrombileVendorId(vendor.getVendorId());
+                result.add(vendor);
+            }
+        }
+        return result;
     }
 
     @Override

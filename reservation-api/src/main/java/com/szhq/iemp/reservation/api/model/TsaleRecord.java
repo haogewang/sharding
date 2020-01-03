@@ -3,6 +3,8 @@ package com.szhq.iemp.reservation.api.model;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.szhq.iemp.common.model.BaseEntity;
 import lombok.Data;
+import org.hibernate.annotations.DynamicInsert;
+import org.hibernate.annotations.DynamicUpdate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import javax.persistence.*;
@@ -12,6 +14,8 @@ import javax.persistence.*;
  */
 @Entity(name = "t_sale_record")
 @Data
+@DynamicUpdate
+@DynamicInsert
 @EntityListeners(AuditingEntityListener.class)
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public class TsaleRecord extends BaseEntity {

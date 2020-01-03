@@ -49,9 +49,10 @@ public class ReservationServiceImpl implements ReservationService {
     @Cacheable
     @Override
     public MyPage<Treservation> findReservationNoCriteria(Integer page, Integer size, String sorts, String orders) {
-        Sort sort = SortUtil.sort(sorts, orders, "reservationId");
+        Sort sort = SortUtil.sort("reservationTime", orders, "reservationId");
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<Treservation> pages = reservationRepository.findAll(pageable);
+        logger.debug("");
         return new MyPage<Treservation>(pages.getContent(), pages.getTotalElements(), pages.getNumber(), pages.getSize());
     }
 
@@ -59,7 +60,7 @@ public class ReservationServiceImpl implements ReservationService {
     @Override
     public MyPage<Treservation> findReservationCriteria(Integer page, Integer size, String sorts, String orders,
                                                                     ReservationQuery reservationQuery) {
-        Sort sort = SortUtil.sort(sorts, orders, "reservationId");
+        Sort sort = SortUtil.sort("reservationTime", orders, "reservationId");
         Pageable pageable = PageRequest.of(page, size, sort);
         Page<Treservation> pages = reservationRepository.findAll(new Specification<Treservation>() {
             private static final long serialVersionUID = 1L;
@@ -70,11 +71,11 @@ public class ReservationServiceImpl implements ReservationService {
                     if (reservationQuery.getReservationTime() != null) {
                         Date date = new Date(reservationQuery.getReservationTime());
                         LocalDate localDate = date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
-                        long startstamp = localDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+                        long startStamp = localDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
                         LocalDate endDate = localDate.plusDays(1);
                         Date endDates = new Date(java.sql.Date.valueOf(endDate).getTime() - 1L);
-                        long endstamp = endDates.getTime();
-                        list.add(criteriaBuilder.between(root.get("reservationTime").as(Long.class), startstamp, endstamp));
+                        long endStamp = endDates.getTime();
+                        list.add(criteriaBuilder.between(root.get("reservationTime").as(Long.class), startStamp, endStamp));
                     }
                     if (reservationQuery.getStartTime() != null && reservationQuery.getEndTime() != null) {
                         long start = reservationQuery.getStartTime().getTime();
@@ -93,7 +94,7 @@ public class ReservationServiceImpl implements ReservationService {
                     if (!StringUtils.isEmpty(reservationQuery.getReservationNumber())) {
                         list.add(criteriaBuilder.equal(root.get("reservationNumber").as(String.class), reservationQuery.getReservationNumber()));
                     }
-                    if (reservationQuery.getOperatorIdList() != null && reservationQuery.isHaveInstallSite() == true) {
+                    if (reservationQuery.getOperatorIdList() != null && reservationQuery.isHaveInstallSite()) {
                         list.add(root.get("installSite").get("operatorId").as(Integer.class).in(reservationQuery.getOperatorIdList()));
                     }
                 }
@@ -109,24 +110,28 @@ public class ReservationServiceImpl implements ReservationService {
         Optional<Treservation> treservation = reservationRepository.findById(reservation.getReservationId());
         if (treservation.isPresent()) {
             Treservation model = treservation.get();
-            BeanUtils.copyProperties(reservation, model, PropertyUtil.getNullProperties(reservation));
-            Treservation entity = reservationRepository.save(model);
-            deleteRedisKey();
-            if (entity != null) {
-                return 1;
+            if(reservation.getElecColorId() != null){
+                reservation.setColorId(reservation.getElecColorId());
             }
+            if(reservation.getTypeId() != null){
+                reservation.setTypeId(reservation.getTypeId());
+            }
+            if(reservation.getVendorId() != null){
+                reservation.setVendorId(reservation.getVendorId());
+            }
+            BeanUtils.copyProperties(reservation, model, PropertyUtil.getNullProperties(reservation));
+            reservationRepository.save(model);
+            deleteRedisKey();
+            return 1;
         }
         return 0;
     }
 
     @Override
     public Integer save(Treservation reservation) {
-        Treservation model = reservationRepository.save(reservation);
+        reservationRepository.save(reservation);
         deleteRedisKey();
-        if (model != null) {
-            return 1;
-        }
-        return 0;
+        return 1;
     }
 
     @CacheEvict
@@ -139,14 +144,12 @@ public class ReservationServiceImpl implements ReservationService {
 
     @Override
     public Integer countByExample(Integer registrationSiteId, long start, long end) {
-        Integer count = reservationRepository.countByExample(registrationSiteId, start, end);
-        return count;
+        return reservationRepository.countByExample(registrationSiteId, start, end);
     }
 
     @Override
     public Treservation getInfo(String number) {
-        Treservation treservation = reservationRepository.findByReservationNumberEquals(number);
-        return treservation;
+        return reservationRepository.findByReservationNumberEquals(number);
     }
 
     @Override
@@ -154,8 +157,10 @@ public class ReservationServiceImpl implements ReservationService {
         long current = System.currentTimeMillis();
         //今天零点零分零秒的毫秒数
         long zero = current / (1000 * 3600 * 24) * (1000 * 3600 * 24) - TimeZone.getDefault().getRawOffset();
-        long threedayAgo = zero - 24 * 60 * 60 * 1000 * 3;
-        return reservationRepository.deleteByReservationTimeLessThan(threedayAgo);
+        long threeDayAgo = zero - 24 * 60 * 60 * 1000 * 2;
+        Integer count = reservationRepository.deleteByReservationTimeLessThan(threeDayAgo);
+        deleteRedisKey();
+        return count;
     }
 
     @Override

@@ -58,6 +58,9 @@ public class ElectrmobileServiceImpl implements ElectrmobileService {
                     if (StringUtils.isNotEmpty(elecQuery.getPlateNo())) {
                         list.add(criteriaBuilder.like(root.get("plateNumber").as(String.class), "%" + elecQuery.getPlateNo() + "%"));
                     }
+                    if (elecQuery.getGroupIdList() != null) {
+                        list.add(root.get("groupId").as(Integer.class).in(elecQuery.getGroupIdList()));
+                    }
                     if (elecQuery.getGroupId() != null) {
                         list.add(criteriaBuilder.equal(root.get("groupId").as(Integer.class), elecQuery.getGroupId()));
                     }
@@ -88,7 +91,11 @@ public class ElectrmobileServiceImpl implements ElectrmobileService {
                     if (deviceQuery.getInstallSiteId() != null) {
                         list.add(criteriaBuilder.equal(root.get("installSiteId").as(Integer.class), deviceQuery.getInstallSiteId()));
                     }
+                    if (deviceQuery.getGroupIdList() != null) {
+                        list.add(root.get("groupId").as(Integer.class).in(deviceQuery.getGroupIdList()));
+                    }
                 }
+                list.add(criteriaBuilder.isNotNull(root.get("imei").as(String.class)));
                 Predicate[] p = new Predicate[list.size()];
                 return criteriaBuilder.and(list.toArray(p));
             }

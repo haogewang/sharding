@@ -28,7 +28,7 @@ public class Telectrmobile extends BaseEntity {
     private Long electrmobileId;
 
     @NotEmpty(message = "设备号不能为空")
-    @Column(columnDefinition = "varchar(40) COMMENT '设备号'", unique = true, nullable = false)
+    @Column(columnDefinition = "varchar(40) COMMENT '设备号'")
     private String imei;
 
     @Column(columnDefinition = "INT COMMENT '车辆品牌Id'")
@@ -47,13 +47,13 @@ public class Telectrmobile extends BaseEntity {
     private Date purchaseTime;
 
     @NotEmpty(message = "车牌号不能为空")
-    @Column(columnDefinition = "varchar(32) COMMENT '车牌号'", nullable = false)
+    @Column(columnDefinition = "varchar(32) COMMENT '车牌号'", nullable = false, unique = true)
     private String plateNumber;
 
     @Column(columnDefinition = "varchar(32) COMMENT '保险单号'")
     private String policyNo;
 
-    @Column(columnDefinition = "varchar(32) COMMENT '承保日期'")
+    @Column(columnDefinition = "datetime COMMENT '承保日期'")
     private Date insuranceTime;
 
     @Column(columnDefinition = "varchar(300) COMMENT '电动车照片路径'")
@@ -83,13 +83,13 @@ public class Telectrmobile extends BaseEntity {
     @Column(columnDefinition = "INT COMMENT '运营公司Id'", nullable = false)
     private Integer operatorId;
 
-    @Column(columnDefinition = "INT COMMENT '归属地Id'", nullable = false)
+    @Column(columnDefinition = "INT COMMENT '归属地Id'")
     private Integer regionId;
 
     @Column(columnDefinition = "varchar(30) COMMENT '归属地名称'")
     private String regionName;
 
-    @Column(columnDefinition = "INT COMMENT '仓库Id'", nullable = false)
+    @Column(columnDefinition = "INT COMMENT '仓库Id'")
     private Integer storehouseId;
 
     @Column(columnDefinition = "varchar(30) COMMENT '仓库名称'")
@@ -98,7 +98,7 @@ public class Telectrmobile extends BaseEntity {
     @Column(columnDefinition = "varchar(30) COMMENT '无线服务商名称'")
     private String iotTypeName;
 
-    @Column(columnDefinition = "INT COMMENT '无线服务商Id'", nullable = false)
+    @Column(columnDefinition = "INT COMMENT '无线服务商Id'")
     private Integer iotTypeId;
 
     @Column(columnDefinition = "varchar(32) COMMENT '所有人Id'")
@@ -107,7 +107,7 @@ public class Telectrmobile extends BaseEntity {
     @Column(columnDefinition = "varchar(32) COMMENT '安装点名称'")
     private String installSiteName;
 
-    @Column(columnDefinition = "INT COMMENT '安装点Id' ", nullable = false)
+    @Column(columnDefinition = "INT COMMENT '安装点Id' ")
     private Integer installSiteId;
 
     @Column(columnDefinition = "varchar(64) COMMENT '从属派出所Id'")
@@ -119,7 +119,7 @@ public class Telectrmobile extends BaseEntity {
     @Column(columnDefinition = "varchar(64) COMMENT '设备厂商名称'")
     private String manufactorName;
 
-    @Column(columnDefinition = "INT COMMENT '设备厂商Id'", nullable = false)
+    @Column(columnDefinition = "INT COMMENT '设备厂商Id'")
     private Integer manufactorId;
 
     @Column(columnDefinition = "varchar(32) COMMENT '设备名称'")
@@ -137,6 +137,9 @@ public class Telectrmobile extends BaseEntity {
 
     @Transient
     private String vendor;
+
+    @Transient
+    private String plateType;
 
     @PrePersist //@PreUpdate
     public void prePersist() {

@@ -19,7 +19,7 @@ public interface ReservationRepository extends JpaRepository<Treservation, Integ
 
     @Modifying
     @Query(value = "delete from t_reservation where reservation_time <= ?1", nativeQuery = true)
-    Integer deleteByReservationTimeLessThan(long threedayAgo);
+    Integer deleteByReservationTimeLessThan(Long threeDayAgo);
 
     Treservation findByVin(String vin);
 

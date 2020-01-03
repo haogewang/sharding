@@ -1,5 +1,6 @@
 package com.szhq.iemp.device.controller;
 
+import com.alibaba.fastjson.JSONObject;
 import com.szhq.iemp.common.constant.ResultConstant;
 import com.szhq.iemp.common.vo.MyPage;
 import com.szhq.iemp.common.vo.Result;
@@ -41,7 +42,7 @@ public class DeviceDefectiveController {
                     @RequestParam(required = false, value = "sort") String sort,
                     @RequestParam(required = false, value = "order") String order,
                     @RequestBody(required = false) DeviceQuery query) {
-        logger.info("defective-query:" + query);
+        logger.info("defective-query:" + JSONObject.toJSONString(query));
         MyPage<TdeviceDefectiveInventory> list = defectiveInventoryService.findByCretira(offset, limit, sort, order, query);
         Map<String, Object> result = new HashMap<>();
         result.put("defectives", list.getContent());

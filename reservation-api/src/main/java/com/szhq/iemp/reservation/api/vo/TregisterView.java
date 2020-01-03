@@ -98,7 +98,7 @@ public class TregisterView implements Serializable {
 
     private Integer operatorId;
 
-    private Integer deviceStorehouseId;
+    private Integer storehouseId;
 
     private Integer residentId;
 

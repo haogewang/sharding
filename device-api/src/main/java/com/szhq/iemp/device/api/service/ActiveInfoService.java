@@ -46,4 +46,12 @@ public interface ActiveInfoService {
     List<ActiveDeviceCount> activeStatisticByOperatorId(SaleRecordQuery query);
 
     List<ActiveDeviceCount> activeStatisticByGroupId(SaleRecordQuery query);
+
+    List<TactiveInfo> getInfoByGroupId(String id);
+
+    List<ActiveDeviceCount> getStatisticInfoByGroupId(String id);
+
+    List<String> findImeisByOperatorIds(List<Integer> operatorIds);
+
+    Integer returnOff(String imei);
 }

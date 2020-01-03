@@ -47,11 +47,13 @@ public class Tgroup extends BaseEntity {
     @Formula("(select G.name from t_group G where G.id = parent_id)")
     private String parentName;
 
-    @Formula("(select count(DI.imei) from t_device_inventory DI where DI.group_id = id)")
+//    @Formula("(select count(DI.imei) from t_device_inventory DI where DI.group_id = id)")
+    @Transient
     private Integer deviceCount;
 
-    @Formula("(select count(E.imei) from t_electrmobile E where E.group_id = id)")
-    private Integer elecCount;
+//    @Formula("(select count(E.imei) from t_electrmobile E where E.group_id = id)")
+    @Transient
+    private Long elecCount;
 
     private Integer customType;
 

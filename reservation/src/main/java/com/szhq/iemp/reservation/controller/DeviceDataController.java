@@ -3,18 +3,15 @@ package com.szhq.iemp.reservation.controller;
 
 import com.alibaba.fastjson.JSONObject;
 import com.szhq.iemp.common.constant.ResultConstant;
+import com.szhq.iemp.common.util.DencryptTokenUtil;
 import com.szhq.iemp.common.vo.Result;
-import com.szhq.iemp.reservation.api.model.HistoryWlanData;
-import com.szhq.iemp.reservation.api.model.NbiotDeviceData;
-import com.szhq.iemp.reservation.api.model.NbiotDeviceRtData;
-import com.szhq.iemp.reservation.api.service.NbiotDeviceDataService;
-import com.szhq.iemp.reservation.api.service.NbiotDeviceRtDataService;
-import com.szhq.iemp.reservation.api.service.NbiotHistoryWlanDataService;
+import com.szhq.iemp.reservation.api.model.*;
+import com.szhq.iemp.reservation.api.service.*;
 import com.szhq.iemp.reservation.api.vo.query.DateQuery;
-import com.szhq.iemp.reservation.util.DecyptTokenUtil;
 import com.szhq.iemp.reservation.util.GpsTransferUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -30,6 +27,7 @@ import java.util.stream.Collectors;
 @Api(value = "/device/data", description = "车辆定位(地图)模块")
 @RequestMapping("/device/data")
 @RestController
+@Slf4j
 public class DeviceDataController {
 
     @Autowired
@@ -38,6 +36,10 @@ public class DeviceDataController {
     private NbiotDeviceDataService nbiotDeviceDataService;
     @Autowired
     private NbiotHistoryWlanDataService nbiotHistoryWlanDataService;
+    @Autowired
+    private ElectrmobileService electrmobileService;
+    @Autowired
+    private GroupService groupService;
 
     private GpsTransferUtil gpsTransferUtil = new GpsTransferUtil();
 
@@ -53,7 +55,7 @@ public class DeviceDataController {
     public Result getRtDatas(@RequestParam(value = "lowerLeft") String lowerLeft,
                              @RequestParam(value = "upperRight") String upperRight,
                              @RequestParam(value = "type", required = false) String type, HttpServletRequest request) {
-    	List<Integer> operatorIds = DecyptTokenUtil.getOperatorIds(request);
+    	List<Integer> operatorIds = DencryptTokenUtil.getOperatorIds(request);
         List<NbiotDeviceRtData> nbiotDeviceData = nbiotDeviceRtDataService.getData(lowerLeft, upperRight, operatorIds);
         return new Result(ResultConstant.SUCCESS, nbiotDeviceData);
     }
@@ -66,7 +68,30 @@ public class DeviceDataController {
     public Result getData(@RequestParam(value = "imei") String imei,
                             @RequestParam(value = "start") Long start,
                             @RequestParam(value = "end") Long end,
-                            @RequestParam(value = "field",required = false) String field) {
+                            @RequestParam(value = "field",required = false) String field, HttpServletRequest request) {
+        Map<String, Object> map = DencryptTokenUtil.decyptToken(request);
+        if(map == null){
+            log.error("decypt token is null");
+            return new Result(ResultConstant.SUCCESS, null);
+        }
+        String role = (String)map.get("role");
+        Telectrmobile electrmobile = electrmobileService.findByImei(imei);
+        if(electrmobile != null && electrmobile.getGroupId() != null){
+            Tgroup group = groupService.findByIdAndType(electrmobile.getGroupId(), 2);
+            if(group != null && Objects.equals(1, group.getCustomType())){
+                if("11".equals(role)){
+                    return getResult(imei, start, end, field);
+                }
+                else {
+                    return new Result(ResultConstant.SUCCESS, null);
+                }
+            }
+            return getResult(imei, start, end, field);
+        }
+        return getResult(imei, start, end, field);
+    }
+
+    private Result getResult(String imei, Long start, Long end, String field) {
         List<NbiotDeviceData> list = nbiotDeviceDataService.getData(imei, start, end);
         Map<String, Object> result = new HashMap<>();
         if(StringUtils.isNotEmpty(field)) {

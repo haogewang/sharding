@@ -5,6 +5,7 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.szhq.iemp.common.constant.ResultConstant;
 import com.szhq.iemp.common.exception.NbiotException;
+import com.szhq.iemp.common.util.DencryptTokenUtil;
 import com.szhq.iemp.common.util.ListUtils;
 import com.szhq.iemp.common.vo.MyPage;
 import com.szhq.iemp.common.vo.Result;
@@ -14,11 +15,7 @@ import com.szhq.iemp.reservation.api.service.ElectrmobileService;
 import com.szhq.iemp.reservation.api.service.NbiotDeviceRtDataService;
 import com.szhq.iemp.reservation.api.service.UserService;
 import com.szhq.iemp.reservation.api.vo.NbiotRtDataVo;
-import com.szhq.iemp.reservation.api.vo.TelectrmobileVo;
 import com.szhq.iemp.reservation.api.vo.query.ElecmobileQuery;
-import com.szhq.iemp.reservation.api.vo.query.RegisterQuery;
-import com.szhq.iemp.reservation.service.NbiotDeviceRtDataServiceImpl;
-import com.szhq.iemp.reservation.util.DecyptTokenUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.apache.commons.lang3.StringUtils;
@@ -29,10 +26,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -54,8 +48,6 @@ public class ElectrombileController {
     @Autowired
     private NbiotDeviceRtDataService nbiotDeviceRtDataService;
 
-    private NbiotDeviceRtDataServiceImpl rt = new NbiotDeviceRtDataServiceImpl();
-
     @ApiOperation(value = "电动车列表查询", notes = "电动车列表查询")
     @RequestMapping(value = "/search", method = RequestMethod.POST)
     public Result search(@RequestParam(value = "offset") Integer offset,
@@ -63,43 +55,37 @@ public class ElectrombileController {
                          @RequestParam(required = false, value = "sort") String sort,
                          @RequestParam(required = false, value = "order") String order,
                          @RequestBody(required = false) ElecmobileQuery elecQuery) {
-        logger.info("elec query:" + JSONObject.toJSONString(elecQuery));
+        logger.info("elec-query:" + JSONObject.toJSONString(elecQuery));
         MyPage<Telectrmobile> list = electrombileService.findElecByCriteria(offset, limit, sort, order, elecQuery);
         JSONArray resultArray = new JSONArray();
         if (list != null && list.getTotal() > 0) {
             for (Telectrmobile elec : list.getContent()) {
+                elec.setUser(userService.findById(elec.getOwnerId()));
                 JSONObject object = JSONObject.parseObject(JSON.toJSONString(elec));
-                if (object.getString("imei") == null) continue;
-                String imei = object.getString("imei");
-                if (StringUtils.isEmpty(imei)) continue;
-                NbiotDeviceRtData data = nbiotDeviceRtDataService.getLocation(imei);
-                if (data != null) {
-                    object.put("data", JSONObject.parseObject(JSON.toJSONString(rt.dataTransfer(data))));
+                if (StringUtils.isNotEmpty(object.getString("imei"))){
+//                    String imei = object.getString("imei");
+                    List<NbiotRtDataVo> rtDataList = nbiotDeviceRtDataService.findRtDataByElecs(Arrays.asList(elec));
+                    if(rtDataList != null && rtDataList.size() > 0){
+                        object.put("data", JSONObject.parseObject(JSON.toJSONString(rtDataList.get(0))));
+                    }
+//                    NbiotDeviceRtData data = nbiotDeviceRtDataService.getLocation(imei);
+//                    if (data != null) {
+//                        object.put("data", JSONObject.parseObject(JSON.toJSONString(rt.dataTransfer(data))));
+//                    }
                 }
                 resultArray.add(object);
             }
         }
         Map<String, Object> result = new HashMap<>();
         result.put("electrombiles", resultArray);
-        result.put("total", list.getTotal());
+        if(list != null){
+            result.put("total", list.getTotal());
+        }else{
+            result.put("total", 0);
+        }
+        logger.info("elec-query-end.");
         return new Result(ResultConstant.SUCCESS, result);
     }
-
-    @ApiOperation(value = "所有电动车列表查询(包括未绑定设备车辆)", notes = "电动车列表查询(包括未绑定设备车辆)")
-    @RequestMapping(value = "/searchAll", method = RequestMethod.POST)
-    public Result searchAll(@RequestParam(value = "offset") Integer offset,
-                            @RequestParam(value = "pagesize") Integer limit,
-                            @RequestParam(required = false, value = "sort") String sort,
-                            @RequestParam(required = false, value = "order") String order,
-                            @RequestBody(required = false) RegisterQuery elecQuery) {
-        logger.info("all-elec-query:" + JSONObject.toJSONString(elecQuery));
-        MyPage<TelectrmobileVo> list = electrombileService.findAllElecByCriteria(offset, limit, sort, order, elecQuery);
-        Map<String, Object> result = new HashMap<>();
-        result.put("electrombiles", list.getContent());
-        result.put("total", list.getTotal());
-        return new Result(ResultConstant.SUCCESS, result);
-    }
-
 
     @ApiOperation(value = "根据userId获取用户所有已绑设备电动车信息", notes = "根据userId获取用户所有已绑设备电动车信息")
     @RequestMapping(value = "/getAllElecmobileByUserId", method = RequestMethod.GET)
@@ -128,7 +114,7 @@ public class ElectrombileController {
             logger.info("elec-imeis:" + JSONObject.toJSONString(imeis));
             List<NbiotDeviceRtData> list = new ArrayList<>();
             List<NbiotRtDataVo> voList = new ArrayList<>();
-            if (isApp == true) {
+            if (isApp) {
                 voList = nbiotDeviceRtDataService.findRtDataByElecs(elecmobiles);
                 String[] sortNameArr = {"createTime"};
                 boolean[] isAscArr = {false};
@@ -154,7 +140,7 @@ public class ElectrombileController {
         if (elecmobile != null) {
             List<Telectrmobile> elecmobiles = new ArrayList<>();
             elecmobiles.add(elecmobile);
-            if (isApp == true) {
+            if (isApp) {
                 List<NbiotRtDataVo> voList = nbiotDeviceRtDataService.findRtDataByElecs(elecmobiles);
                 String[] sortNameArr = {"createTime"};
                 boolean[] isAscArr = {false};
@@ -168,11 +154,11 @@ public class ElectrombileController {
                 return new Result(ResultConstant.SUCCESS, list);
             }
         }
-        return new Result(ResultConstant.SUCCESS, elecmobile);
+        return new Result(ResultConstant.SUCCESS, null);
     }
 
     @ApiOperation(value = "根据imei获取电动车及车主信息", notes = "根据imei获取电动车及车主信息")
-    @RequestMapping(value = "/getElecAndUserInfoByImei", method = RequestMethod.GET)
+    @RequestMapping(value = "/getElecAndUserInfo", method = RequestMethod.GET)
     public Result getElecAndUserInfoByImei(@RequestParam(value = "imei") String imei) {
         List<Tuser> users = new ArrayList<Tuser>();
         Telectrmobile electrombile = electrombileService.findByImei(imei);
@@ -192,15 +178,15 @@ public class ElectrombileController {
     }
 
     @ApiOperation(value = "根据imei获取电动车及位置信息", notes = "根据imei获取电动车及位置信息")
-    @RequestMapping(value = "/getElecAndLocationInfoByImei", method = RequestMethod.GET)
+    @RequestMapping(value = "/getElecAndLocationInfo", method = RequestMethod.GET)
     public Result getElecAndLocationInfo(@RequestParam(value = "imei") String imei, HttpServletRequest request) {
-        List<Integer> operatorIds = DecyptTokenUtil.getOperatorIds(request);
+        List<Integer> operatorIds = DencryptTokenUtil.getOperatorIds(request);
         Telectrmobile elecmobile = electrombileService.findByImei(imei);
         NbiotDeviceRtData deviceRtData = nbiotDeviceRtDataService.findByImei(imei, operatorIds);
         Map<String, Object> result = new HashMap<>();
-        if (elecmobile != null && elecmobile.getUser() != null) {
-            Tuser user = userService.findById(elecmobile.getUser().getId());
-            result.put("owner", JSONObject.toJSONString(user));
+        if (elecmobile != null && StringUtils.isNotBlank(elecmobile.getOwnerId())) {
+            Tuser user = userService.findById(elecmobile.getOwnerId());
+            result.put("owner", JSONObject.parseObject(JSONObject.toJSONString(user)));
         }
         result.put("elecmobile", elecmobile);
         result.put("location", deviceRtData);
@@ -215,9 +201,20 @@ public class ElectrombileController {
     }
 
     @ApiOperation(value = "根据车牌号获取车及用户信息", notes = "根据车牌号获取车及用户信息")
-    @RequestMapping(value = "/getElecAndUserInfoByPlateNo", method = RequestMethod.POST)
-    public Result getElecAndUserInfoByPlateNo(@RequestBody ElecmobileQuery elecQuery) {
+    @RequestMapping(value = "/getElecAndUserInfoByPlateNo", method = RequestMethod.GET)
+    public Result getElecAndUserInfoByPlateNo(@RequestParam(value = "plateNo") String plateNo,
+                                              @RequestParam(value = "isValidGroup",defaultValue = "false") Boolean isValidGroup, HttpServletRequest request) {
+        List<Integer> operatorIds = DencryptTokenUtil.getOperatorIds(request);
+        ElecmobileQuery elecQuery = new ElecmobileQuery();
+        elecQuery.setPlateNumber(plateNo);
+        elecQuery.setOperatorIdList(operatorIds);
         Telectrmobile electrombile = electrombileService.getElecAndUserInfoByPlateNo(elecQuery);
+        if(isValidGroup){
+            if(electrombile.getGroupId() != null){
+                logger.error("the electrmobile has dispatch to group.plateNo:" + plateNo);
+                throw new NbiotException(3000012, "该车已被分组，不能再次分组");
+            }
+        }
         return new Result(ResultConstant.SUCCESS, electrombile);
     }
 
@@ -271,11 +268,11 @@ public class ElectrombileController {
         long size = file.getSize();
         if (StringUtils.isEmpty(fileName) || size == 0) {
             logger.error("file is null");
-            throw new NbiotException(500, "Excel文件不能为空");
+            throw new NbiotException(601, "Excel文件不能为空");
         }
         if (!fileName.endsWith("xls") && !fileName.endsWith("xlsx")) {
             logger.error("Excel文件格式不正确");
-            throw new NbiotException(500, "Excel文件格式不正确");
+            throw new NbiotException(602, "Excel文件格式不正确");
         }
         electrombileService.batchImportExcelUpdatePolicyNo(file);
         return new Result(ResultConstant.SUCCESS, ResultConstant.SUCCESS.getMessage());
@@ -355,7 +352,7 @@ public class ElectrombileController {
     @RequestMapping(value = "/deleteRedis", method = RequestMethod.DELETE)
     public Result deleteRedis() {
         Integer i = electrombileService.deleteElecRedisData();
-        Integer j = electrombileService.deleteRedisColorTypeVendor();
+        electrombileService.deleteRedisColorTypeVendor();
         return new Result(ResultConstant.SUCCESS, i);
     }
 

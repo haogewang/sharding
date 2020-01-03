@@ -1,14 +1,11 @@
 package com.szhq.iemp.device.api.service;
 
-import com.szhq.iemp.common.vo.BaseQuery;
 import com.szhq.iemp.common.vo.MyPage;
 import com.szhq.iemp.device.api.model.TdeviceStoreHouse;
 import com.szhq.iemp.device.api.vo.ActiveDeviceCount;
-import com.szhq.iemp.device.api.vo.query.DeviceQuery;
 import com.szhq.iemp.device.api.vo.query.StorehouseQuery;
 
 import java.util.List;
-import java.util.Map;
 
 public interface DeviceStoreHouseService {
     /**
@@ -38,6 +35,8 @@ public interface DeviceStoreHouseService {
      * 通过id找设备仓库
      */
     TdeviceStoreHouse findById(Integer id);
+
+    List<TdeviceStoreHouse> findByIds(List<Integer> storehouseIds);
 
     /**
      * 根据父Id查找下一级子类
@@ -73,4 +72,6 @@ public interface DeviceStoreHouseService {
      * 根据运营公司Id查找运营公司下所有仓库
      */
     List<TdeviceStoreHouse> findAllStoresByOperatorId(Integer operatorId);
+
+
 }

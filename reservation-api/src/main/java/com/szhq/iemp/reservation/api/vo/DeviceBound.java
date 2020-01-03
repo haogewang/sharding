@@ -24,7 +24,7 @@ public class DeviceBound implements Serializable{
 	@NotEmpty(message = "用户Id不能为空")
 	private String userId;
 
-	@NotEmpty(message = "设备名不能为空")
+//	@NotEmpty(message = "设备名不能为空")
 	private String deviceName;
 
 	private String plateNumber;
@@ -32,6 +32,8 @@ public class DeviceBound implements Serializable{
 	private Integer frequency = 86400;
 
 	private String type = "W302";
+
+//	private Long registerId;
 
 
 }

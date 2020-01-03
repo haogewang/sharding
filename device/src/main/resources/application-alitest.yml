@@ -6,7 +6,7 @@ spring:
             names: master,slave
             master:
                 driver-class-name: com.mysql.cj.jdbc.Driver
-                jdbc-url: jdbc:mysql://db:3306/tracker?useUnicode=true&characterEncoding=utf-8&autoReconnect=true&serverTimezone=GMT%2b8&zeroDateTimeBehavior=convertToNull
+                jdbc-url: jdbc:mysql://db:3306/tracker_v1?useUnicode=true&characterEncoding=utf-8&autoReconnect=true&serverTimezone=GMT%2b8&zeroDateTimeBehavior=convertToNull
                 username: fdmn
                 password: HuaQiang614376!
                 data-username: fdmn
@@ -23,7 +23,7 @@ spring:
                 validation-timeout: 3000
             slave:
                 driver-class-name: com.mysql.cj.jdbc.Driver
-                jdbc-url: jdbc:mysql://db-slave:3306/tracker?useUnicode=true&characterEncoding=utf-8&autoReconnect=true&serverTimezone=GMT%2b8&zeroDateTimeBehavior=convertToNull
+                jdbc-url: jdbc:mysql://db-slave:3306/tracker_v1?useUnicode=true&characterEncoding=utf-8&autoReconnect=true&serverTimezone=GMT%2b8&zeroDateTimeBehavior=convertToNull
                 username: fdmn
                 password: HuaQiang614376!
                 pool-name: slavePool1
@@ -110,7 +110,7 @@ spring:
         show-sql: true
     redis:
         host: 127.0.0.1
-        password: Changeme_123
+        password: adminadmin
         port: 6379
         timeout: 10000
         jedis:
@@ -129,7 +129,7 @@ springfox:
     documentation:
         swagger:
             v2:
-                host: 112.124.201.252:8999
+              host: 112.124.201.252:8999
 log:
     path: /data/iEMP/logs/aep-devicemanage
 logging:

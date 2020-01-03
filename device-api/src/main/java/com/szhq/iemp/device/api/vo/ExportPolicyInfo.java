@@ -38,7 +38,13 @@ public class ExportPolicyInfo implements Serializable {
 
     private String imei;
 
+    private String phone;
+
+    private String sex;
+
     List<Tinsurance> insurances;
+
+    private String operatorName;
 
 
 }

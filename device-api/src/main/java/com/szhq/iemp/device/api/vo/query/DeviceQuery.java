@@ -1,10 +1,12 @@
 package com.szhq.iemp.device.api.vo.query;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.szhq.iemp.common.vo.BaseQuery;
 import lombok.Data;
 import lombok.ToString;
 
 import java.util.Date;
+import java.util.List;
 
 /**
  * 设备过滤条件
@@ -30,7 +32,7 @@ public class DeviceQuery extends BaseQuery {
 	/**
 	 * 设备状态
 	 */
-	private String devstate;
+	private Integer devstate;
 	/**
 	 * 设备类型
 	 */
@@ -51,6 +53,12 @@ public class DeviceQuery extends BaseQuery {
 	 * 入库时间
 	 */
 	private Date putStorageTime;
+
+	@JsonFormat(timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")
+	private Date putStorageStartTime;
+
+	@JsonFormat(timezone = "GMT+8", pattern = "yyyy-MM-dd HH:mm:ss")
+	private Date putStorageEndTime;
 	/**
 	 * 是否入库 1:未入库
 	 */
@@ -63,6 +71,8 @@ public class DeviceQuery extends BaseQuery {
 	 * 设备分组Id
 	 */
 	private Integer groupId;
+
+	private List<Integer> groupIdList;
 	/**
 	 * 仓库名
 	 */

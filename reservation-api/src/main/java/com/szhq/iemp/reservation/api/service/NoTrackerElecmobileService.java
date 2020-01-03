@@ -17,12 +17,10 @@ public interface NoTrackerElecmobileService {
     MyPage<TnoTrackerElec> findAllByCriteria(Integer page, Integer size, String sort, String order, ElecmobileQuery query);
 
     MyPage<TnoTrackerElec> findAllByCretia(Integer page, Integer size, String sorts, String orders, ElecmobileQuery query);
-
     /**
      * 根据车牌查找
      */
     TnoTrackerElec findByPlateNumber(String plateNo);
-
     /**
      * 根据车架号查找
      */
@@ -31,26 +29,10 @@ public interface NoTrackerElecmobileService {
      * 根据id查找
      */
     TnoTrackerElec findById(Long id);
-
-    /**
-     * 根据userId查找
-     */
-    List<TnoTrackerElec> findByUserId(String id);
-
     /**
      * 添加电动车(有imei时备案)(302模式)
      */
-    Integer add(NotrackerRegister notrackerRegister, HttpServletRequest request);
-
-    /**
-     * 根据id删除
-     */
-    Integer deleteById(Long id);
-
-    /**
-     * 根据userId删除
-     */
-    Integer deleteByUserId(String userId);
+    Long add(NotrackerRegister notrackerRegister, HttpServletRequest request);
 
     /**
      * 绑定设备(310模式)
@@ -68,10 +50,6 @@ public interface NoTrackerElecmobileService {
      * 解绑电动车或电动车及设备
      */
     Integer unBoundByElecIdAndUserId(String userId, Long elecId);
-    /**
-     * 修改车辆信息
-     */
-    Integer update(TnoTrackerElec tnoTrackerElec);
 
     /**
      * 添加用户及电动车

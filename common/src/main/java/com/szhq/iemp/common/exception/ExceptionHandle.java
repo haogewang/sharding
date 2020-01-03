@@ -1,18 +1,22 @@
 package com.szhq.iemp.common.exception;
 
 import com.szhq.iemp.common.constant.CommonConstant;
+import com.szhq.iemp.common.util.ProcessKillUtil;
 import com.szhq.iemp.common.util.ResultUtil;
 import com.szhq.iemp.common.vo.Result;
 import org.apache.commons.lang3.StringUtils;
+import org.hibernate.exception.JDBCConnectionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.servlet.http.HttpServletRequest;
+import java.sql.SQLTransientConnectionException;
 import java.util.Locale;
 
 /**
@@ -33,18 +37,26 @@ public class ExceptionHandle {
         req.setAttribute("exception", e);
         req.setAttribute("exmsg", e.getMessage());
         if (e instanceof NbiotException) {
+            Integer code = ((NbiotException) e).getCode();
+            logger.error("code:{}, message:{}" ,code, e.getMessage());
 //            return ResultUtil.error(((NbiotException) e).getCode(), e.getMessage());
             Object[] params = ((NbiotException) e).getParams();
-            return ResultUtil.error(((NbiotException) e).getCode(), getLocalMessage(((NbiotException) e).getCode(), e.getMessage(), params));
+            return ResultUtil.error(code, getLocalMessage(code, e.getMessage(), params));
         }
         else if (e instanceof NullPointerException) {
             logger.error("e", e);
 //            return ResultUtil.error(CommonConstant.WRONG_CODE, CommonConstant.INNER_ERROR);
             return ResultUtil.error(CommonConstant.WRONG_CODE, getLocalMessage(CommonConstant.WRONG_CODE, e.getMessage()));
         }
+        else if(e instanceof JDBCConnectionException || e instanceof SQLTransientConnectionException || e instanceof DataAccessResourceFailureException){
+            String pid = ProcessKillUtil.getCurrentPid();
+            logger.error("pid:" + pid, e);
+            ProcessKillUtil.killProcessByPid(pid);
+            return ResultUtil.error(CommonConstant.WRONG_CODE, getLocalMessage(CommonConstant.WRONG_CODE, e.getMessage()));
+        }
         else {
             logger.error("e", e);
-            return ResultUtil.error(CommonConstant.WRONG_CODE, e.getMessage());
+            return ResultUtil.error(CommonConstant.WRONG_CODE, getLocalMessage(CommonConstant.WRONG_CODE, e.getMessage()));
         }
     }
 
@@ -56,6 +68,8 @@ public class ExceptionHandle {
             String[] split = lang.split("_");
             //接收的第一个参数为：语言代码，国家代码
             locale=new Locale(split[0], split[1]);
+        }else{
+            locale=new Locale("zh", "CN");
         }
        String message = messageSource.getMessage(String.valueOf(code), params, defaultMessage, locale);
        logger.info("code:{},message:{}，locale:{}" ,code, message, locale);

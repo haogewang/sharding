@@ -21,4 +21,6 @@ public class TelectrombileType extends BaseEntity {
 
     private String name;
 
+    @Transient
+    private Integer electrombileTypeId;
 }

@@ -47,7 +47,6 @@ public class ActiveController {
         return new Result(ResultConstant.FAILED, "");
     }
 
-
     @ApiOperation(value = "统计激活人员今日激活设备数", notes = "统计激活人员今日激活设备数")
     @RequestMapping(value = "/countTodayActive", method = RequestMethod.POST)
     public Result countTodayActive(@RequestParam(value = "userId") String userId) {
@@ -76,7 +75,7 @@ public class ActiveController {
         return new Result(ResultConstant.SUCCESS, result);
     }
 
-    @ApiOperation(value = "设备退货", notes = "设备退货")
+    @ApiOperation(value = "设备去激活", notes = "设备去激活")
     @RequestMapping(value = "/back", method = RequestMethod.POST)
     public Result back(@RequestParam(value = "imei") String imei,
                          @RequestParam(value = "userId") String userId) {
@@ -86,6 +85,17 @@ public class ActiveController {
         }
         return new Result(ResultConstant.FAILED, "");
     }
+
+//    @ApiOperation(value = "设备退货", notes = "设备退货")
+//    @RequestMapping(value = "/returnOff", method = RequestMethod.POST)
+//    public Result returnOff(@RequestParam(value = "imei") String imei) {
+//        Integer i = activeInfoService.returnOff(imei);
+//        if(i > 0){
+//            return new Result(ResultConstant.SUCCESS, i);
+//        }
+//        return new Result(ResultConstant.FAILED, "");
+//    }
+
 
     @ApiOperation(value = "根据用户Id查询设备激活时间", notes = "根据用户Id查询设备激活时间")
     @RequestMapping(value = "/getActiveByUserId", method = RequestMethod.POST)
@@ -148,6 +158,13 @@ public class ActiveController {
     @RequestMapping(value = "/activeStatisticByGroupId", method = RequestMethod.POST)
     public Result activeStatisticByGroupId(@RequestBody SaleRecordQuery query) {
         List<ActiveDeviceCount> result = activeInfoService.activeStatisticByGroupId(query);
+        return new Result(ResultConstant.SUCCESS, result);
+    }
+
+    @ApiOperation(value = "根据组Id查看详情", notes = "根据组Id查看详情")
+    @RequestMapping(value = "/getInfoByGroupId", method = RequestMethod.POST)
+    public Result getInfoByGroupId(@RequestParam(value = "groupId") String id) {
+        List<ActiveDeviceCount> result = activeInfoService.getStatisticInfoByGroupId(id);
         return new Result(ResultConstant.SUCCESS, result);
     }
 }

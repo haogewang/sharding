@@ -21,7 +21,7 @@ public class RequsetBodyChannelFilter implements Filter {
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
-        logger.info("init RequsetBodyChannelFilter...");
+        logger.info("init RequestBodyChannelFilter...");
         excludedUris = filterConfig.getInitParameter("excludedUri").split(",");
     }
 
